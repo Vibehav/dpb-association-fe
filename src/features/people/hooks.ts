@@ -115,6 +115,15 @@ export function useAadhaarUrl(id: string, side: AadhaarSide, enabled: boolean) {
     // around in memory longer than it's usable.
     staleTime: 4 * 60 * 1000,
     gcTime: 4 * 60 * 1000,
-    retry: false
+    retry: false,
+    // Fetched ONLY when `enabled` flips true — i.e. on a deliberate tap.
+    //
+    // Without these, React Query's defaults (staleTime elapsed + focus/reconnect refetch)
+    // would re-request the URL after four minutes of the panel being open, and the server
+    // writes a VIEW row to `aadhaar_access_log` on every request. The audit trail would then
+    // contain views the admin never asked for, which defeats the point of logging them.
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false
   });
 }

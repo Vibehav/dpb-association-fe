@@ -261,3 +261,7 @@ delta is dominated by deletions until the new files are staged.
    existing session, not a route, and nothing on it navigates.
 4. **Fonts must be gated, not awaited lazily.** Rendering before they load causes a visible
    reflow on a screen whose whole character is the serif numerals.
+5. **`useRefreshOnFocus` must not depend on its callback's identity.** The first version listed
+   `refetch` in the `useCallback` deps, which turned any inline arrow at the call site into an
+   infinite refetch loop. Home hit it. See
+   [10 §1](10-design-review-fixes.md#1-home-reloaded-continuously-bug-fixed).

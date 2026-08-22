@@ -20,7 +20,8 @@ the per-phase detail.
 | [06](06-people.md) | People | List, profile, the Aadhaar panel, edit, standalone add. |
 | [07](07-account-committee.md) | Account & Committee | Change M-PIN, committee management and its guards. |
 | [08](08-verification.md) | Verification | How everything was proved, every result, and what is **not** covered. |
-| [09](09-api-defects.md) | API defects | Three findings in `dpb-association-api`, two fixed. |
+| [09](09-api-defects.md) | API defects | Three findings in `dpb-association-api`, all resolved. |
+| [10](10-design-review-fixes.md) | Design review fixes | Prototype-vs-build pass: the Home reload loop, register-shop fields, the inline pickers, and two fields deliberately not built. |
 
 ## Status
 

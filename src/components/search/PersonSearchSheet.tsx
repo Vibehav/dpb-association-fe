@@ -1,16 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { peopleApi, type PersonListItem } from "../../api";
 import { queryKeys } from "../../app/queryKeys";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
-import { colors, radii, spacing, typography } from "../../theme";
-import { roleLabel } from "../../utils/format";
-import { formatPhone } from "../../utils/phone";
-import { Avatar } from "../ui/Avatar";
+import { colors, spacing, typography } from "../../theme";
 import { Button } from "../ui/Button";
 import { ErrorState } from "../ui/ErrorState";
 import { SearchBox } from "../ui/SearchBox";
+import { PersonResultRow } from "./PersonResultRow";
 import { Sheet } from "../ui/Sheet";
 
 type Props = {
@@ -26,24 +24,26 @@ type Props = {
   excludeIds?: string[];
 };
 
+/** The design's own wording (prototype `showPickSheet`). */
+const DEFAULT_HINT = "Search first — the person may already be on record at another shop.";
+
 /**
  * **The duplicate guard.** Both "+ Add person to this shop" and "+ Add a member" open this,
- * never a blank form (integration doc §5.7, functional spec §7.3).
+ * never a blank form (prototype `showPickSheet`, integration doc §5.7, spec §7.3).
  *
  * At ~2,300 people this is the difference between one profile per worker and two
  * half-profiles with split histories. Nothing is listed until the user types — showing
  * everyone would defeat the point and pull the register onto the phone.
  *
- * Slight deviation from the design: it offers "Not on record — create new" as soon as a
- * search has been made, not only when there are zero results. Searching "Ramesh" and
- * getting three of them who are all the wrong Ramesh is a real case, and the user has
- * still been made to look first.
+ * **"Not on record — create new" is always visible**, beside Cancel, exactly as the design
+ * has it. An earlier version only revealed it once you had typed something, which made the
+ * sheet read as a dead end when you already knew the person wasn't registered.
  */
 export function PersonSearchSheet({
   visible,
   onClose,
   title,
-  hint,
+  hint = DEFAULT_HINT,
   onPickExisting,
   onCreateNew,
   excludeIds
@@ -66,16 +66,13 @@ export function PersonSearchSheet({
     <Sheet visible={visible} onClose={onClose} title={title}>
       {hint ? <Text style={typography.body}>{hint}</Text> : null}
 
-      <SearchBox
-        value={term}
-        onChangeText={setTerm}
-        placeholder="Search name, phone or shop number"
-        autoFocus
-      />
+      <SearchBox value={term} onChangeText={setTerm} placeholder="Name or phone number" autoFocus />
 
       <View style={styles.results}>
         {!searching ? (
-          <Text style={styles.prompt}>Type a name or number to look for an existing member.</Text>
+          <Text style={styles.prompt}>
+            Type a name or number to check whether this person is already registered.
+          </Text>
         ) : results.isPending ? (
           <ActivityIndicator color={colors.primary} style={styles.spinner} />
         ) : results.error ? (
@@ -88,50 +85,36 @@ export function PersonSearchSheet({
         ) : (
           <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
             {matches.map((person) => (
-              <PersonRow key={person.id} person={person} onPress={() => onPickExisting(person)} />
+              <PersonResultRow
+                key={person.id}
+                person={person}
+                action="Link"
+                onPress={() => onPickExisting(person)}
+              />
             ))}
           </ScrollView>
         )}
       </View>
 
-      {onCreateNew && searching ? (
-        <Button
-          label="Not on record — create new"
-          variant={matches.length === 0 ? "primary" : "secondary"}
-          icon="person-add-outline"
-          onPress={onCreateNew}
-        />
-      ) : null}
-
-      <Button label="Cancel" variant="ghost" onPress={onClose} />
+      {/* Cancel and create-new side by side, both always available — as the design has it. */}
+      <View style={styles.footer}>
+        <View style={styles.footerCancel}>
+          <Button label="Cancel" variant="secondary" onPress={onClose} />
+        </View>
+        {onCreateNew ? (
+          <View style={styles.footerCreate}>
+            <Button
+              label="Not on record — create new"
+              icon="person-add-outline"
+              onPress={onCreateNew}
+            />
+          </View>
+        ) : null}
+      </View>
     </Sheet>
   );
 }
 
-function PersonRow({ person, onPress }: { person: PersonListItem; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`Link ${person.name}`}
-      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-    >
-      <Avatar name={person.name} size={34} />
-      <View style={styles.rowText}>
-        <Text style={typography.cardTitle}>{person.name}</Text>
-        <Text style={styles.mono}>{formatPhone(person.phone)}</Text>
-        {/* Existing shops and roles are what tell the collector "this is the right man". */}
-        {person.shops.length > 0 ? (
-          <Text style={typography.bodySmall} numberOfLines={2}>
-            {person.shops.map((shop) => `${shop.shopNumber} · ${roleLabel(shop.role)}`).join("   ")}
-          </Text>
-        ) : (
-          <Text style={typography.bodySmall}>No shop linked</Text>
-        )}
-      </View>
-    </Pressable>
-  );
-}
 
 /** Clear the term when the sheet closes, so reopening doesn't reuse a stale search. */
 function useSearchTerm(visible: boolean) {
@@ -147,15 +130,7 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 0 },
   spinner: { paddingVertical: spacing.xl },
   prompt: { ...typography.bodySmall, paddingVertical: spacing.lg, textAlign: "center" },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radii.md
-  },
-  rowPressed: { backgroundColor: colors.soft },
-  rowText: { flex: 1, gap: 2 },
-  mono: { ...typography.mono, fontSize: 12 }
+  footer: { flexDirection: "row", gap: spacing.sm },
+  footerCancel: { flexBasis: 100, flexGrow: 0 },
+  footerCreate: { flex: 1 }
 });

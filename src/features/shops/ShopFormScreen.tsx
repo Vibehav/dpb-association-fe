@@ -1,15 +1,9 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import {
-  errorMessage,
-  isCode,
-  type NewPersonPayload,
-  type PersonListItem,
-  type Tenancy
-} from "../../api";
+import { errorMessage, isCode, type NewPersonPayload, type PersonListItem, type Tenancy } from "../../api";
+import { PersonPicker } from "../../components/search/PersonPicker";
 import { Banner, Button, Card, Chip, ChipRow, ErrorState, Field, LoadingScreen, Screen } from "../../components/ui";
-import { PersonSearchSheet } from "../../components/search/PersonSearchSheet";
 import type { AppStackParamList } from "../../navigation/types";
 import { spacing, typography } from "../../theme";
 import { formatPhone } from "../../utils/phone";
@@ -19,19 +13,31 @@ import { useRegisterShop, useShop, useUpdateShop } from "./hooks";
 
 type Props = NativeStackScreenProps<AppStackParamList, "ShopForm">;
 
+/** Prototype `rentedOptions`. */
 const TENANCIES: { value: Tenancy; label: string }[] = [
   { value: "OWNER_RUN", label: "Run by owner" },
   { value: "RENTED_OUT", label: "Rented out" }
 ];
 
+/** Prototype `holderModes`. */
+type HolderMode = "existing" | "new";
+
 /**
- * Register a shop, or edit one.
+ * Register a shop, or edit one. Follows the prototype's `isAddShop` screen.
  *
- * Registration is the design's two-step flow (integration doc §5.4): the shop, then its
- * licence holder — an existing member, or a new person captured inline. The new-person
- * branch does **not** call `POST /people`; the payload is embedded in `POST /shops` so the
- * shop and its OWNER link are created in one transaction and the person is never
- * momentarily shopless.
+ * The licence holder is a **two-mode choice**, not a hidden one: "Pick an existing member"
+ * reveals an inline search in place, "Add a new person" continues to the member form as
+ * step 2. An earlier version had a single button that opened the pick sheet, which made
+ * onboarding a brand-new owner hard to find.
+ *
+ * The new-person branch does **not** call `POST /people`. Its payload is embedded in
+ * `POST /shops` as `owner.newPerson`, so the shop and its OWNER link are created in one
+ * transaction and the person is never momentarily shopless (integration doc §5.4).
+ *
+ * **Not implemented, deliberately:** the design's *Floor* chip row. The v1 API has no
+ * `floor` column (api slice 1: "No wings, no floors"), and the decision was to leave the API
+ * as it is. *Wing or lane* is a free-text field rather than the design's chips for the same
+ * reason — `lane` is free text with no master list.
  */
 export function ShopFormScreen({ navigation, route }: Props) {
   const shopId = route.params?.shopId;
@@ -46,8 +52,8 @@ export function ShopFormScreen({ navigation, route }: Props) {
   const [businessName, setBusinessName] = useState("");
   const [lane, setLane] = useState("");
   const [tenancy, setTenancy] = useState<Tenancy>("OWNER_RUN");
+  const [holderMode, setHolderMode] = useState<HolderMode | null>(null);
   const [owner, setOwner] = useState<PersonListItem | null>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
 
@@ -55,7 +61,6 @@ export function ShopFormScreen({ navigation, route }: Props) {
     navigation.setOptions({ title: editing ? "Edit shop" : "Register shop" });
   }, [editing, navigation]);
 
-  // Prefill once the shop being edited arrives.
   useEffect(() => {
     const shop = existing.data;
     if (!editing || !shop) return;
@@ -74,6 +79,13 @@ export function ShopFormScreen({ navigation, route }: Props) {
     );
   }
 
+  const shopFields = {
+    shopNumber: shopNumber.trim(),
+    businessName: businessName.trim(),
+    lane: lane.trim(),
+    tenancy
+  };
+
   function validateShopFields() {
     const message = firstError(
       validateShopNumber(shopNumber),
@@ -85,7 +97,8 @@ export function ShopFormScreen({ navigation, route }: Props) {
   }
 
   function handleFailure(caught: unknown) {
-    // A taken shop number belongs on the field, not in a generic banner.
+    // A taken shop number belongs on the field, not in a generic banner — and step 1 has to
+    // be visible for the user to fix it.
     if (isCode(caught, "duplicate_shop_number")) {
       setFieldError("A shop with this number already exists.");
       setFormError(null);
@@ -96,18 +109,11 @@ export function ShopFormScreen({ navigation, route }: Props) {
     setFormError(errorMessage(caught));
   }
 
-  const shopFields = {
-    shopNumber: shopNumber.trim(),
-    businessName: businessName.trim(),
-    lane: lane.trim(),
-    tenancy
-  };
-
   async function saveEdit() {
     if (!validateShopFields()) return;
     setFieldError(null);
     try {
-      // All four fields are sent on every edit (integration doc §5.3).
+      // All four fields go on every edit (integration doc §5.3).
       await update.mutateAsync(shopFields);
       navigation.goBack();
     } catch (caught) {
@@ -115,11 +121,30 @@ export function ShopFormScreen({ navigation, route }: Props) {
     }
   }
 
-  async function registerWithExistingOwner(personId: string) {
+  /** "Save shop & continue" — either registers now, or moves to step 2. */
+  async function saveAndContinue() {
     if (!validateShopFields()) return;
+
+    if (!holderMode) {
+      setFormError("Choose the licence holder — pick an existing member, or add a new person.");
+      return;
+    }
+    if (holderMode === "new") {
+      setFormError(null);
+      setStep("owner");
+      return;
+    }
+    if (!owner) {
+      setFormError("Search for the licence holder, or switch to adding a new person.");
+      return;
+    }
+
     setFieldError(null);
     try {
-      const shop = await register.mutateAsync({ ...shopFields, owner: { existingPersonId: personId } });
+      const shop = await register.mutateAsync({
+        ...shopFields,
+        owner: { existingPersonId: owner.id }
+      });
       navigation.replace("ShopDetail", { shopId: shop.id });
     } catch (caught) {
       handleFailure(caught);
@@ -135,7 +160,7 @@ export function ShopFormScreen({ navigation, route }: Props) {
     }
   }
 
-  // --- step 2 of 2: capture a brand-new licence holder --------------------------
+  // --- step 2 of 2: capture a brand-new licence holder -------------------------
   if (step === "owner") {
     return (
       <Screen>
@@ -162,7 +187,7 @@ export function ShopFormScreen({ navigation, route }: Props) {
     );
   }
 
-  // --- step 1: the shop itself --------------------------------------------------
+  // --- step 1: the shop itself -------------------------------------------------
   return (
     <Screen>
       {!editing ? <Text style={typography.eyebrow}>Step 1 of 2 · the shop</Text> : null}
@@ -170,7 +195,7 @@ export function ShopFormScreen({ navigation, route }: Props) {
       <Card>
         <Field
           label="Shop number"
-          placeholder="A-12"
+          placeholder="A-31"
           value={shopNumber}
           onChangeText={(next) => {
             setShopNumber(next);
@@ -180,20 +205,21 @@ export function ShopFormScreen({ navigation, route }: Props) {
           autoCapitalize="characters"
         />
         <Field
-          label="Business name"
-          placeholder="The name on the board"
+          label="Business name on the board"
+          placeholder="e.g. Shree Ganesh Flowers"
           value={businessName}
           onChangeText={setBusinessName}
           autoCapitalize="words"
         />
         <Field
-          label="Lane or wing"
-          placeholder="Lane 2"
+          label="Wing or lane"
+          placeholder="e.g. A Wing, Lane 3"
           value={lane}
           onChangeText={setLane}
           autoCapitalize="words"
         />
-        <Text style={typography.eyebrow}>How it's run</Text>
+
+        <Text style={typography.eyebrow}>How it is run</Text>
         <ChipRow>
           {TENANCIES.map((option) => (
             <Chip
@@ -209,28 +235,45 @@ export function ShopFormScreen({ navigation, route }: Props) {
       {!editing ? (
         <Card>
           <Text style={typography.eyebrow}>Licence holder</Text>
-          {owner ? (
-            <>
+          <ChipRow>
+            <Chip
+              label="Pick an existing member"
+              selected={holderMode === "existing"}
+              onPress={() => {
+                setHolderMode("existing");
+                setFormError(null);
+              }}
+            />
+            <Chip
+              label="Add a new person"
+              selected={holderMode === "new"}
+              onPress={() => {
+                setHolderMode("new");
+                setOwner(null);
+                setFormError(null);
+              }}
+            />
+          </ChipRow>
+
+          {/* Revealed in place, so the shop fields stay visible above it. */}
+          {holderMode === "existing" && !owner ? (
+            <PersonPicker
+              onPick={(person) => {
+                setOwner(person);
+                setFormError(null);
+              }}
+            />
+          ) : null}
+
+          {holderMode === "existing" && owner ? (
+            <View style={styles.picked}>
               <Text style={typography.cardTitle}>{owner.name}</Text>
               <Text style={styles.mono}>{formatPhone(owner.phone)}</Text>
-              <Button label="Change" variant="ghost" onPress={() => setSearchOpen(true)} />
-            </>
-          ) : (
-            <>
-              <Text style={typography.body}>
-                A shop always has exactly one licence holder. Pick an existing member, or add a
-                new person as step 2.
-              </Text>
-              <Button
-                label="Choose licence holder"
-                variant="secondary"
-                icon="search"
-                onPress={() => {
-                  if (validateShopFields()) setSearchOpen(true);
-                }}
-              />
-            </>
-          )}
+              <Button label="Change" variant="ghost" onPress={() => setOwner(null)} />
+            </View>
+          ) : null}
+
+          <Text style={typography.bodySmall}>{nextStepNote(holderMode, owner)}</Text>
         </Card>
       ) : null}
 
@@ -240,33 +283,25 @@ export function ShopFormScreen({ navigation, route }: Props) {
         <Button label="Save changes" icon="checkmark" loading={update.isPending} onPress={saveEdit} />
       ) : (
         <Button
-          label="Register shop"
-          icon="checkmark"
+          label="Save shop & continue"
+          icon="arrow-forward"
           loading={register.isPending}
-          disabled={!owner}
-          onPress={() => owner && registerWithExistingOwner(owner.id)}
+          onPress={saveAndContinue}
         />
       )}
-
-      <PersonSearchSheet
-        visible={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        title="Licence holder"
-        hint="Search before adding — a second profile splits a member's record in two."
-        onPickExisting={(person) => {
-          setOwner(person);
-          setSearchOpen(false);
-        }}
-        onCreateNew={() => {
-          setSearchOpen(false);
-          setOwner(null);
-          setStep("owner");
-        }}
-      />
     </Screen>
   );
 }
 
+/** Prototype `nextStepNote` — tells the user what "continue" is about to do. */
+function nextStepNote(mode: HolderMode | null, owner: PersonListItem | null) {
+  if (!mode) return "A shop always has exactly one licence holder.";
+  if (mode === "new") return "Next: their name, photo, phone, address and Aadhaar.";
+  if (!owner) return "Search an existing member by name or phone number.";
+  return `${owner.name} will hold the licence for this shop.`;
+}
+
 const styles = StyleSheet.create({
-  mono: { ...typography.mono, fontSize: 12, marginBottom: spacing.xs }
+  picked: { gap: spacing.xs },
+  mono: { ...typography.mono, fontSize: 12 }
 });

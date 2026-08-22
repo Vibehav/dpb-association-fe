@@ -1,5 +1,13 @@
 import type { ReactNode } from "react";
-import { RefreshControl, ScrollView, StyleSheet, View, type ViewStyle } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+  type ViewStyle
+} from "react-native";
 import { SafeAreaView, type Edge } from "react-native-safe-area-context";
 import { colors, spacing } from "../../theme";
 
@@ -19,11 +27,18 @@ export function Screen({ children, scroll = true, refreshing, onRefresh, content
 
   return (
     <SafeAreaView style={styles.safe} edges={edges}>
+      {/* The member form is eight fields deep; without this the keyboard sits on top of the
+          lower ones. Android resizes the window itself, so only iOS needs padding. */}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
       {scroll ? (
         <ScrollView
           style={styles.flex}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           refreshControl={
             onRefresh ? (
               <RefreshControl
@@ -39,6 +54,7 @@ export function Screen({ children, scroll = true, refreshing, onRefresh, content
       ) : (
         inner
       )}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

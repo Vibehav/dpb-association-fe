@@ -9,6 +9,7 @@
 
 import * as ImagePicker from "expo-image-picker";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Platform } from "react-native";
 import { errorMessage, type MediaType } from "../api";
 import { uploadImage, type CapturedImage } from "./upload";
 
@@ -140,6 +141,9 @@ export function useImageCapture(type: MediaType): ImageCapture {
   };
 }
 
+/** ID-1 card, 85.6 × 54 mm — the shape of an Aadhaar card. */
+const CARD_ASPECT: [number, number] = [86, 54];
+
 function pickerOptions(type: MediaType): ImagePicker.ImagePickerOptions {
   const shared: ImagePicker.ImagePickerOptions = {
     mediaTypes: ["images"],
@@ -152,7 +156,18 @@ function pickerOptions(type: MediaType): ImagePicker.ImagePickerOptions {
     exif: false
   };
 
-  // A member photo is a face, shown as a circle — square crop. An Aadhaar card must be
-  // captured whole, so no crop step.
-  return type === "PHOTO" ? { ...shared, allowsEditing: true, aspect: [1, 1] } : shared;
+  // A face, shown in a circle. Square is also the only crop iOS offers, so this is
+  // consistent across platforms.
+  if (type === "PHOTO") return { ...shared, allowsEditing: true, aspect: [1, 1] };
+
+  // Aadhaar is a rectangular card, and `expo-image-picker` has **no free-form crop** on
+  // either platform — `aspect` only sets a fixed ratio.
+  //
+  // Android honours `aspect`, so the user gets a card-shaped frame to trim the desk out of.
+  // iOS *ignores* `aspect` and forces a square crop, which would cut the ends off the card —
+  // so there we skip the editor entirely and keep the full frame. Losing a crop step is a
+  // minor annoyance; losing the edge of someone's Aadhaar number is not.
+  return Platform.OS === "android"
+    ? { ...shared, allowsEditing: true, aspect: CARD_ASPECT }
+    : shared;
 }

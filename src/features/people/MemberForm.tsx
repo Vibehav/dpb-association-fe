@@ -20,19 +20,17 @@ import { useMe } from "../../auth/useMe";
 import { ImageCaptureField } from "../../components/media/ImageCaptureField";
 import { Banner, Button, Card, CheckRow, Field, PhoneField } from "../../components/ui";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
-import { useImageCapture } from "../../media";
+import { imageFieldError, useImageCapture } from "../../media";
 import { spacing, typography } from "../../theme";
 import { formatDate } from "../../utils/format";
 import { isValidPhone, normalisePhone } from "../../utils/phone";
 import {
   firstError,
-  validateAadhaarFrontKey,
   validateAadhaarLast4,
+  validateConsent,
   validateName,
   validatePhone,
-  validatePhotoKey,
-  validateWhatsApp,
-  validateConsent
+  validateWhatsApp
 } from "../../utils/validators";
 
 type Props = {
@@ -99,8 +97,10 @@ export function MemberForm({
       sameWhatsApp ? null : validateWhatsApp(whatsApp),
       validateLinks ? validateLinks() : null,
       validateAadhaarLast4(aadhaarLast4),
-      validatePhotoKey(photo.key),
-      validateAadhaarFrontKey(aadhaarFront.key),
+      // State-aware: distinguishes "not captured yet" from "captured but the upload
+      // failed". The API now rejects a key whose object never landed in storage.
+      imageFieldError(photo, "The member photo"),
+      imageFieldError(aadhaarFront, "The Aadhaar front"),
       validateConsent(consent)
     );
     setValidationError(message);

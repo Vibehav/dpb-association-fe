@@ -59,14 +59,9 @@ export function validateConsent(consent: boolean) {
   return consent ? null : "The member must consent before their details can be saved.";
 }
 
-/** A new member needs both images uploaded before the create call (integration doc §8). */
-export function validatePhotoKey(key: string | null) {
-  return key ? null : "Capture the member's photo.";
-}
-
-export function validateAadhaarFrontKey(key: string | null) {
-  return key ? null : "Capture the front of the Aadhaar card.";
-}
+// §8's "photo and Aadhaar front are mandatory" rule lives in `media/validation.ts` as
+// `imageFieldError`, which also needs the capture state to tell "not captured" apart from
+// "upload failed" — a distinction the API now enforces via `media_not_uploaded`.
 
 /** Every new member needs at least one shop link, and it may not be an OWNER link. */
 export function validateLinks(links: { shopId: string; role: string }[]) {

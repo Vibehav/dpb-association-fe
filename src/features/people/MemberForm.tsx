@@ -129,7 +129,7 @@ export function MemberForm({
       <Card>
         <Field
           label="Full name"
-          placeholder="As on the Aadhaar card"
+          placeholder="As written on the Aadhaar card"
           value={name}
           onChangeText={setName}
           autoCapitalize="words"
@@ -147,10 +147,10 @@ export function MemberForm({
           hint={duplicate.data ? `${duplicate.data.name} already has this number.` : null}
         />
         <CheckRow
-          label="WhatsApp same as phone"
+          label="WhatsApp number for receipts"
           checked={sameWhatsApp}
           onToggle={setSameWhatsApp}
-          description="Receipts will go to this number."
+          description="Same as the phone number above."
         />
         {!sameWhatsApp ? (
           <PhoneField label="WhatsApp number" value={whatsApp} onChangeText={setWhatsApp} />
@@ -170,11 +170,11 @@ export function MemberForm({
           type="AADHAAR_FRONT"
           capture={aadhaarFront}
           required
-          note="Only an admin can open a stored Aadhaar image, and every view is logged."
+          note="Stored encrypted. Once saved, the image can only be opened by the admin — collectors cannot view it again."
         />
         <ImageCaptureField label="Aadhaar back" type="AADHAAR_BACK" capture={aadhaarBack} />
         <Field
-          label="Aadhaar last 4 digits (optional)"
+          label="Aadhaar — last 4 digits (optional)"
           placeholder="1234"
           value={aadhaarLast4}
           onChangeText={(next) => setAadhaarLast4(next.replace(/\D/g, "").slice(0, 4))}
@@ -185,10 +185,10 @@ export function MemberForm({
 
       <Card>
         <CheckRow
-          label="The member consents"
+          label="Consent"
           checked={consent}
           onToggle={setConsent}
-          description="They agree to the association holding their Aadhaar copy and contact details."
+          description="The member has agreed to the association keeping their Aadhaar copy and contact details on record."
         />
         {me.data ? (
           <Text style={typography.bodySmall}>

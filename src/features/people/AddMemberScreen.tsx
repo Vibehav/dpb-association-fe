@@ -1,42 +1,32 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { errorMessage, type LinkableRole, type NewPersonPayload } from "../../api";
+import { errorMessage, type NewPersonPayload } from "../../api";
 import { PersonSearchSheet } from "../../components/search/PersonSearchSheet";
-import { ShopSearchSheet } from "../../components/search/ShopSearchSheet";
-import { Button, Card, Chip, Screen } from "../../components/ui";
+import { Screen } from "../../components/ui";
 import type { AppStackParamList } from "../../navigation/types";
-import { colors, spacing, typography } from "../../theme";
-import { roleLabel } from "../../utils/format";
 import { validateLinks } from "../../utils/validators";
 import { MemberForm } from "./MemberForm";
+import { ShopLinksField, type PickedLink } from "./components/ShopLinksField";
 import { useCreatePerson } from "./hooks";
 
 type Props = NativeStackScreenProps<AppStackParamList, "AddMember">;
 
-type PickedLink = {
-  shopId: string;
-  shopNumber: string;
-  businessName: string;
-  role: LinkableRole;
-};
-
 /**
  * Add a member from the People tab — `POST /people` (integration doc §5.8).
  *
- * Opens with the **search sheet, not the form** (§5.7): at ~2,300 people, letting someone
- * type a fresh profile without looking first is how you end up with two half-records and a
- * split history.
+ * Opens on the **pick sheet**, matching the prototype: `+ Add a member` calls `openPickAny`,
+ * which shows "Search first — the person may already be on record at another shop", and only
+ * "Not on record — create new" leads to this form. At ~2,300 people that guard is the
+ * difference between one profile per worker and two half-profiles with a split history
+ * (spec §7.3).
  *
- * At least one RENTER/STAFF link is mandatory. There is deliberately no way to pick OWNER —
- * an owner exists only through shop registration or a licence transfer.
+ * The form itself carries the role chips and the shop search **inline** (`ShopLinksField`),
+ * as the design has them — not behind a second sheet.
  */
 export function AddMemberScreen({ navigation }: Props) {
   const create = useCreatePerson();
 
-  // Search first. The form only appears once the user has looked and not found them.
   const [searchOpen, setSearchOpen] = useState(true);
-  const [shopOpen, setShopOpen] = useState(false);
   const [links, setLinks] = useState<PickedLink[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,41 +43,6 @@ export function AddMemberScreen({ navigation }: Props) {
     }
   }
 
-  const linksSection = (
-    <Card>
-      <Text style={typography.eyebrow}>Shops &amp; roles · at least one</Text>
-      <Text style={typography.bodySmall}>
-        The licence holder is set through shop registration or a transfer, so only renter and
-        worker roles can be chosen here.
-      </Text>
-
-      {links.map((link) => (
-        <View key={link.shopId} style={styles.row}>
-          <Text style={styles.number}>{link.shopNumber}</Text>
-          <Text style={[typography.body, styles.grow]} numberOfLines={1}>
-            {link.businessName}
-          </Text>
-          <Chip label={roleLabel(link.role)} />
-          <Pressable
-            onPress={() => setLinks(links.filter((other) => other.shopId !== link.shopId))}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={`Remove ${link.shopNumber}`}
-          >
-            <Text style={styles.remove}>Remove</Text>
-          </Pressable>
-        </View>
-      ))}
-
-      <Button
-        label={links.length === 0 ? "Link a shop & role" : "Link another shop & role"}
-        variant="secondary"
-        icon="add"
-        onPress={() => setShopOpen(true)}
-      />
-    </Card>
-  );
-
   return (
     <>
       <Screen>
@@ -97,7 +52,7 @@ export function AddMemberScreen({ navigation }: Props) {
           error={error}
           onSubmit={submit}
           onBack={() => navigation.goBack()}
-          linksSection={linksSection}
+          linksSection={<ShopLinksField links={links} onChange={setLinks} />}
           validateLinks={() => validateLinks(links)}
         />
       </Screen>
@@ -105,52 +60,19 @@ export function AddMemberScreen({ navigation }: Props) {
       <PersonSearchSheet
         visible={searchOpen}
         onClose={() => {
-          // Backing out of the search without picking means leaving — the form is only
-          // reachable through "not on record".
+          // Dismissing the search without choosing means leaving — the form is only reached
+          // through "Not on record — create new".
           setSearchOpen(false);
           navigation.goBack();
         }}
         title="Add a member"
-        hint="Search first. If they already have a profile, open it instead of making a second one."
         onPickExisting={(person) => {
           setSearchOpen(false);
+          // `replace`, so Back doesn't return to a half-filled form.
           navigation.replace("PersonProfile", { personId: person.id });
         }}
         onCreateNew={() => setSearchOpen(false)}
       />
-
-      <ShopSearchSheet
-        visible={shopOpen}
-        onClose={() => setShopOpen(false)}
-        title="Link a shop"
-        excludeShopIds={links.map((link) => link.shopId)}
-        onPick={(shop, role) => {
-          setShopOpen(false);
-          setLinks([
-            ...links,
-            {
-              shopId: shop.id,
-              shopNumber: shop.shopNumber,
-              businessName: shop.businessName,
-              role
-            }
-          ]);
-        }}
-      />
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border
-  },
-  number: { ...typography.mono, fontSize: 13 },
-  grow: { flex: 1 },
-  remove: { ...typography.bodySmall, color: colors.error }
-});

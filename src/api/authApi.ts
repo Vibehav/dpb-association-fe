@@ -56,14 +56,8 @@ export const authApi = {
     });
   },
 
-  /** Rotates the pair — the old refresh token is revoked, so always persist the new one. */
-  refresh(refreshToken: string) {
-    return request<TokenPair>("/auth/token/refresh", {
-      method: "POST",
-      body: { refreshToken },
-      auth: false
-    });
-  },
+  // NOTE: there is deliberately no `refresh()` here. `client.ts` owns token rotation so it
+  // can single-flight it, and exposing a second way to do it invited callers to bypass that.
 
   /** Revokes this device's refresh token only. */
   logout(refreshToken: string) {

@@ -43,6 +43,7 @@ export function PersonProfileScreen({ navigation, route }: Props) {
   const deletePerson = useDeletePerson();
 
   const [linkOpen, setLinkOpen] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
   const [unlinking, setUnlinking] = useState<PersonShopLink | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -180,13 +181,26 @@ export function PersonProfileScreen({ navigation, route }: Props) {
 
       <ShopSearchSheet
         visible={linkOpen}
-        onClose={() => setLinkOpen(false)}
+        onClose={() => {
+          setLinkOpen(false);
+          setLinkError(null);
+        }}
         title="Link another shop"
         hint="A link is additive — every existing shop stays."
         excludeShopIds={data.shops.map((shop) => shop.shopId)}
-        onPick={(shop, role) => {
-          setLinkOpen(false);
-          run(() => addLink.mutateAsync({ shopId: shop.id, role }));
+        error={linkError}
+        busy={addLink.isPending}
+        // The sheet stays open until the link actually succeeds, and its error shows inside
+        // the sheet. Closing first put the message in a banner far down a long scrolling
+        // profile, where a refused link looked like nothing had happened at all.
+        onPick={async (shop, role) => {
+          setLinkError(null);
+          try {
+            await addLink.mutateAsync({ shopId: shop.id, role });
+            setLinkOpen(false);
+          } catch (caught) {
+            setLinkError(errorMessage(caught));
+          }
         }}
       />
 

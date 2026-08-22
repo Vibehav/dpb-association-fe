@@ -10,12 +10,20 @@ export const queryKeys = {
 
   shops: {
     all: ["shops"] as const,
+    /**
+     * Every list, without the details beneath them. Use this after a **delete** —
+     * invalidating `all` would refetch the detail of a record that no longer exists and
+     * earn a 404 while its screen is still mounted.
+     */
+    lists: ["shops", "list"] as const,
     list: (params: ShopListParams) => ["shops", "list", params] as const,
     detail: (id: string) => ["shops", "detail", id] as const
   },
 
   people: {
     all: ["people"] as const,
+    /** See `shops.lists`. */
+    lists: ["people", "list"] as const,
     list: (params: PeopleListParams) => ["people", "list", params] as const,
     detail: (id: string) => ["people", "detail", id] as const,
     photo: (id: string) => ["people", "detail", id, "photo"] as const,

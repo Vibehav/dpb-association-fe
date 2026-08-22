@@ -2,7 +2,7 @@
 
 Expo/React Native frontend for a market association committee app. The app lets committee users sign in with phone number + M-PIN, view shop and people register data, and lays out placeholder/demo screens for fund and event tracking.
 
-The backend is included separately as `dpb-association-api.zip`. It is a Java/Spring Boot API with PostgreSQL, Flyway migrations, JWT auth, committee users, shops, people, links, and media upload support.
+The backend is maintained separately. It is a Java/Spring Boot API with PostgreSQL, Flyway migrations, JWT auth, committee users, shops, people, links, and media upload support.
 
 ## Current status
 
@@ -100,17 +100,10 @@ Restart Expo after changing `.env`.
 
 ## How to run the backend
 
-The backend is inside:
-
-```text
-dpb-association-api.zip
-```
-
-Unzip it:
+Use the separate backend project:
 
 ```bash
-unzip dpb-association-api.zip
-cd dpb-association-api
+cd /home/vaibhav/Projects/dpb-association-api
 ```
 
 Start local Postgres and MinIO:
@@ -245,12 +238,7 @@ The frontend has dashboard, fund, and event UI screens, but these use mock data.
 | `package.json` | Scripts and dependencies. |
 | `package-lock.json` | Locked npm dependency versions. |
 | `tsconfig.json` | TypeScript configuration. |
-| `dpb-association-api.zip` | Zipped Spring Boot backend source/project. |
 | `uploads/logo-1784996881407.jpeg` | Logo used on auth and unlock screens. |
-| `Market Association App.dc.html` | Design/documentation HTML artifact. |
-| `Market Association App - Functional Spec.dc.html` | Functional spec HTML artifact. |
-| `doc-page.js` | Support script for documentation HTML. |
-| `support.js` | Support script for documentation HTML. |
 
 ### API files
 
@@ -317,9 +305,9 @@ The frontend has dashboard, fund, and event UI screens, but these use mock data.
 | `src/utils/format.ts` | Formatting helpers for money, initials, and title case. |
 | `src/mockData.ts` | Demo dashboard, shops, people, and events used when backend modules are missing or unreachable. |
 
-## Backend project structure inside the zip
+## Backend project structure
 
-After unzipping `dpb-association-api.zip`, the important backend files are:
+In the separate backend project, the important files are:
 
 | File / folder | Purpose |
 | --- | --- |

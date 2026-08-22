@@ -1,11 +1,18 @@
 import { request } from "./client";
+import type { MediaType, UploadUrlResponse } from "./types";
 
 export const mediaApi = {
-  uploadUrl(token: string, type: "MEMBER_PHOTO" | "AADHAAR_FRONT" | "AADHAAR_BACK" | "BILL_PHOTO") {
-    return request<{ key: string; uploadUrl: string; expiresInSeconds: number }>(
-      "/media/upload-url",
-      { method: "POST", body: JSON.stringify({ type }) },
-      token
-    );
+  /**
+   * Mint a presigned PUT target. Admin and collector only.
+   *
+   * The URL expires in about five minutes, so fetch it immediately before uploading —
+   * not when the form opens. The API never receives image bytes; the client PUTs straight
+   * to storage and submits the returned `key`.
+   *
+   * Note the accepted values: `PHOTO`, not `MEMBER_PHOTO`. The previous client sent
+   * `MEMBER_PHOTO` and `BILL_PHOTO`, neither of which the API's `MediaType` enum knows.
+   */
+  uploadUrl(type: MediaType) {
+    return request<UploadUrlResponse>("/media/upload-url", { method: "POST", body: { type } });
   }
 };

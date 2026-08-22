@@ -1,346 +1,135 @@
 # Market Association Record App
 
-Expo/React Native frontend for a market association committee app. The app lets committee users sign in with phone number + M-PIN, view shop and people register data, and lays out placeholder/demo screens for fund and event tracking.
+Expo / React Native client for a market association committee (~1,000 shops, ~2,300 people).
+Committee members sign in with a phone number and a 4-digit M-PIN and keep the register of
+shops and the people attached to them.
 
-The backend is maintained separately. It is a Java/Spring Boot API with PostgreSQL, Flyway migrations, JWT auth, committee users, shops, people, links, and media upload support.
+The API is a separate Java / Spring Boot + PostgreSQL project (`../dpb-association-api`).
+
+## Scope — read this first
+
+**v1 is the register only: auth, Shops, People, Account, Committee.**
+
+Everything about money — dashboard figures, Events, Fund, the collection form, receipts, the
+annual fee cycle, cash handover, statements, cancelled receipts — is **v2 and has no API behind
+it**. It is described in the functional spec and drawn in the prototype, but it must not be
+built or stubbed here. If a screen you expect isn't in `docs/frontend-integration.md`, it's v2.
+
+Three documents govern this repo, in order of authority for engineering questions:
+
+| Document | What it settles |
+| --- | --- |
+| `docs/frontend-integration.md` | The API contract and the v1/v2 scope line. Copied verbatim from the API repo. |
+| **`docs/v1/`** | **The build record, one file per phase** — what was decided, what was built, how it was proved, and what isn't covered. Start at `docs/v1/README.md`. |
+| `docs/v1-implementation-plan.md` | The plan: cross-cutting decisions, the phase breakdown, resolved questions, and the invariants not to regress. |
+| `docs/Market Association Record App/` | The functional spec and the interactive prototype — the visual reference. |
+
+Where the spec and the integration doc disagree, the integration doc wins; where the
+integration doc and the API's own slice docs disagree, the API wins.
 
 ## Current status
 
-Auth is complete for the current V1 backend scope. The app covers phone lookup, M-PIN login, first-login PIN setup, forgot/reset M-PIN, session restore, secure token storage, access-token refresh, logout, and unlock with M-PIN.
+**v1 is feature-complete.** Phases 1–7 are done and verified against a running API; every
+screen in integration doc §5 exists. Per-phase detail is in [`docs/v1/`](docs/v1/README.md).
 
-Completed in the frontend:
+| Area | State |
+| --- | --- |
+| Auth — phone → M-PIN → first-login OTP → forgot-PIN → set-PIN | Complete, with the §10 error routing |
+| Token storage, refresh rotation, app-lock, unlock | Complete |
+| HTTP client, typed errors, query cache, navigation, UI kit | Complete |
+| Media — compress → presigned PUT → key | Complete |
+| Shops — list, detail, register (both owner branches), edit, links, transfer, delete | Complete |
+| People — list, profile, photo retake, links, edit, standalone add | Complete |
+| Aadhaar — admin-only viewing, collector re-capture | Complete, verified per role |
+| Account — identity, rights, Change M-PIN, lock, sign out | Complete |
+| Committee — list, add, role, reset PIN, remove, with guards | Complete |
+| **Automated tests** | **Phase 8 — not started.** All verification so far was by throwaway harnesses against a live API |
+| **Device pass as collector / viewer** | **Not done.** The server refuses correctly; nobody has confirmed the buttons are hidden on a phone |
 
-- Phone number lookup and committee-only login flow.
-- First-login OTP flow for users who do not have a PIN yet.
-- Forgot/reset M-PIN flow.
-- Secure token/session storage with `expo-secure-store`.
-- Automatic access-token refresh on `401` responses.
-- App unlock screen that re-checks M-PIN after inactivity using `/auth/verify-pin`.
-- Backend-backed list loading for shops and people.
-- Role-aware tab visibility: admins see Fund, collectors/viewers do not.
-- Account page with sign out.
-- Demo dashboard, fund, and event screens while money APIs are not available.
+Before calling this shippable, read
+[`docs/v1/08-verification.md` §7](docs/v1/08-verification.md#7-what-is-not-covered) — it lists
+exactly what has and hasn't been proved. Also still to do: delete the `__DEV__` media harness at
+`src/features/dev/`.
 
-Still missing or partial:
+## Architecture
 
-- Create/edit/detail screens for shops and people.
-- Committee management screens, although `committeeApi` exists.
-- Real dashboard, fund, event, fee, receipt, and expense APIs.
-- Image capture/upload UI for member photos, Aadhaar, and bills.
-- Aadhaar view/recapture UI with admin-only access.
-- Pagination UI for shops and people; current API wrapper loads page `0` with size `50`.
-- Better production error handling for register list loading. It currently falls back to demo data if shop/person loading fails.
-- Automated tests.
+```
+App.tsx → AppProviders (fonts · safe area · query cache · auth) → RootNavigator
+                                                                     │
+        ┌────────────────────────────────────────────────────────────┼─────────────────┐
+   no tokens                          tokens + locked                        unlocked
+   AuthStack                          UnlockScreen                           AppStack
+   Phone → Pin → Otp → NewPin                                        MainTabs · Account
+                                                                  (Shops · Home · People)
+```
 
-## How to run the frontend
+- **`src/api/`** — one `request()` entry point. Attaches the bearer token from an injected
+  provider, times out at 20s, throws `ApiError(status, code)`, and refreshes-and-retries once on
+  a 401 from a protected endpoint. `errors.ts` carries the authoritative list of every code the
+  API can return.
+- **`src/auth/`** — `AuthContext` owns **tokens and the app-lock only**. The user's name and role
+  come from `GET /me` via `useMe()`, refetched on every screen focus, because the API re-derives
+  the role from the database per request and a mid-session demotion has to land immediately.
+- **`src/app/`** — the query client (`staleTime: 0`, no retry on 4xx, no retry on mutations) and
+  every query key in one place so invalidation is a lookup, not a guess.
+- **`src/features/<area>/`** — screens and hooks per feature area.
+- **`src/components/ui/`** — the shared primitives. 44px minimum touch targets throughout.
+- **`src/theme/`** — the prototype's palette, plus Instrument Serif and IBM Plex Mono.
 
-Install dependencies:
+### Rules the code depends on
+
+1. A shop **always** has exactly one owner. The owner is created only by registration or
+   transfer, and never removed — there is no "remove owner" control anywhere.
+2. Link roles from any add flow are **RENTER or STAFF only**.
+3. **Never call the Aadhaar endpoint as a non-admin.** Not gated-then-called — not called.
+4. The role is never read from a stored login response.
+5. **No mock or cached fallback for register data.** A failure renders as a failure; there is no
+   offline mode and a save must never appear to succeed when it didn't.
+6. The PIN is never written to disk.
+7. Presigned URLs expire in ~5 minutes — fetch them immediately before use.
+8. Paginate everything; counts come from `totalElements`.
+
+## Running the app
+
+Node 20+ required.
 
 ```bash
 npm install
-```
-
-Start Expo:
-
-```bash
-npm start
-```
-
-Run on Android:
-
-```bash
-npm run android
-```
-
-Run on iOS:
-
-```bash
-npm run ios
-```
-
-Run in web mode:
-
-```bash
-npm run web
-```
-
-Type-check the app:
-
-```bash
+npm start          # then i / a / w, or scan with Expo Go
 npm run typecheck
+npm run fix-deps   # expo install --fix, after any SDK bump
 ```
 
-## Frontend API URL
+### API base URL
 
-The default API base URL is:
-
-```text
-http://localhost:8080/api/v1
-```
-
-Configured in:
-
-```text
-src/api/client.ts
-```
-
-For a physical phone, `localhost` means the phone itself, not your laptop. Create a `.env` file at the project root and use your computer's local network IP:
+Defaults to `http://localhost:8080/api/v1`. On a physical phone, `localhost` is the phone —
+point it at your machine:
 
 ```bash
-EXPO_PUBLIC_API_BASE_URL=http://192.168.x.x:8080/api/v1
-```
-
-For Android emulator, this is often:
-
-```bash
-EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:8080/api/v1
+# .env at the project root
+EXPO_PUBLIC_API_BASE_URL=http://192.168.x.x:8080/api/v1   # device on the same wifi
+EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:8080/api/v1      # android emulator
 ```
 
 Restart Expo after changing `.env`.
 
-## How to run the backend
-
-Use the separate backend project:
+## Running the API
 
 ```bash
-cd /home/vaibhav/Projects/dpb-association-api
+cd ../dpb-association-api
+docker compose up -d      # Postgres 16 + MinIO
+./mvnw spring-boot:run    # http://localhost:8080/api/v1
 ```
 
-Start local Postgres and MinIO:
+Needs Java 21 and Docker. Postgres on `localhost:5432` (db/user/pass all `dpb`); MinIO API on
+`:9000`, console on `:9001` (`minioadmin`/`minioadmin`).
 
-```bash
-docker compose up -d
-```
-
-Run the Spring Boot API:
-
-```bash
-./mvnw spring-boot:run
-```
-
-The API runs at:
-
-```text
-http://localhost:8080/api/v1
-```
-
-Backend requirements:
-
-- Java 21
-- Docker
-- PostgreSQL 16 from `compose.yaml`
-- MinIO from `compose.yaml`
-
-Default local services:
-
-- Postgres: `localhost:5432`, database/user/password all `dpb`
-- MinIO API: `localhost:9000`
-- MinIO console: `localhost:9001`
-- MinIO login: `minioadmin` / `minioadmin`
-
-The backend README says the seeded first admin phone is:
-
-```text
-8451963620
-```
-
-For first login, request OTP in the app and read the `DEV OTP` printed in the backend terminal.
-
-## Endpoint coverage
-
-### Auth endpoints
-
-| Endpoint | Frontend status | UI / file |
-| --- | --- | --- |
-| `POST /api/v1/auth/phone` | Complete | Phone step in `LoginScreen.tsx`, via `authApi.lookupPhone()` |
-| `POST /api/v1/auth/login` | Complete | M-PIN step in `LoginScreen.tsx`, via `signIn()` |
-| `POST /api/v1/auth/otp/request` | Complete | First-login and forgot PIN flows in `LoginScreen.tsx` |
-| `POST /api/v1/auth/otp/verify` | Complete | OTP step in `LoginScreen.tsx` |
-| `POST /api/v1/auth/pin/set` | Complete | New M-PIN step in `LoginScreen.tsx` |
-| `POST /api/v1/auth/token/refresh` | Complete | Automatic refresh in `client.ts` + `AuthContext.tsx` |
-| `POST /api/v1/auth/logout` | Complete | Account screen and unlock screen sign-out |
-| `POST /api/v1/auth/verify-pin` | Complete | Unlock screen after inactivity |
-| `GET /api/v1/me` | Complete | Called after login and PIN setup to load user info |
-
-### Register endpoints
-
-| Endpoint | Frontend status | Notes |
-| --- | --- | --- |
-| `GET /api/v1/shops` | Partial | Used by `shopsApi.list()` and `ShopsScreen.tsx` |
-| `GET /api/v1/shops/{id}` | Missing UI | Detail API wrapper not added yet |
-| `POST /api/v1/shops` | Missing UI | Register button exists but is not wired |
-| `PATCH /api/v1/shops/{id}` | Missing UI | Edit screen not built |
-| `DELETE /api/v1/shops/{id}` | Missing UI | Admin delete flow not built |
-| `POST /api/v1/shops/{id}/links` | Missing UI | Add renter/staff flow not built |
-| `POST /api/v1/shops/{id}/transfer` | Missing UI | Admin transfer flow not built |
-| `DELETE /api/v1/links/{linkId}` | Missing UI | Link removal flow not built |
-| `GET /api/v1/people` | Partial | Used by `peopleApi.list()` and `PeopleScreen.tsx` |
-| `GET /api/v1/people/{id}` | Missing UI | Profile screen not built |
-| `POST /api/v1/people` | Missing UI | Add member button exists but is not wired |
-| `PATCH /api/v1/people/{id}` | Missing UI | Edit person flow not built |
-| `POST /api/v1/people/{id}/links` | Missing UI | Link member to shop flow not built |
-| `DELETE /api/v1/people/{id}` | Missing UI | Admin delete flow not built |
-
-### Media endpoints
-
-| Endpoint | Frontend status | Notes |
-| --- | --- | --- |
-| `POST /api/v1/media/upload-url` | API wrapper only | `mediaApi.uploadUrl()` exists |
-| `GET /api/v1/people/{id}/photo` | Missing UI | Signed photo view not built |
-| `PUT /api/v1/people/{id}/photo` | Missing UI | Photo retake not built |
-| `GET /api/v1/people/{id}/aadhaar/{side}` | Missing UI | Admin-only Aadhaar view not built |
-| `PUT /api/v1/people/{id}/aadhaar` | Missing UI | Aadhaar recapture not built |
-
-### Committee endpoints
-
-| Endpoint | Frontend status | Notes |
-| --- | --- | --- |
-| `GET /api/v1/committee` | API wrapper only | `committeeApi.list()` exists |
-| `GET /api/v1/committee/{id}` | API wrapper only | `committeeApi.detail()` exists |
-| `POST /api/v1/committee` | API wrapper only | `committeeApi.add()` exists |
-| `PATCH /api/v1/committee/{id}` | API wrapper only | `committeeApi.changeRole()` exists |
-| `POST /api/v1/committee/{id}/reset-pin` | API wrapper only | `committeeApi.resetPin()` exists |
-| `DELETE /api/v1/committee/{id}` | API wrapper only | `committeeApi.remove()` exists |
-
-### Money/event endpoints
-
-The frontend has dashboard, fund, and event UI screens, but these use mock data. The backend README says money features are a later phase and are not part of the current backend.
-
-## App flow
-
-1. `App.tsx` wraps the app with `AuthProvider`.
-2. `RootNavigator.tsx` decides what to show:
-   - loading spinner while restoring session
-   - `LoginScreen` when signed out
-   - `UnlockScreen` when signed in but locked
-   - `MainTabs` when signed in and unlocked
-3. `LoginScreen.tsx` handles:
-   - phone lookup
-   - PIN login
-   - first-login OTP
-   - forgot PIN OTP
-   - set new PIN
-4. `AuthContext.tsx` stores tokens and user info in SecureStore.
-5. API wrappers use `request()` from `client.ts`.
-6. If a protected request returns `401`, `client.ts` refreshes the access token once and retries the request.
-7. After inactivity, `AuthContext.tsx` sets `locked=true`.
-8. `UnlockScreen.tsx` asks for M-PIN and calls `/auth/verify-pin`.
-
-## File guide
-
-### Root files
-
-| File | Purpose |
-| --- | --- |
-| `App.tsx` | App entry component; wraps navigation in `AuthProvider`. |
-| `app.json` | Expo app configuration. |
-| `babel.config.js` | Expo Babel preset configuration. |
-| `package.json` | Scripts and dependencies. |
-| `package-lock.json` | Locked npm dependency versions. |
-| `tsconfig.json` | TypeScript configuration. |
-| `uploads/logo-1784996881407.jpeg` | Logo used on auth and unlock screens. |
-
-### API files
-
-| File | Purpose |
-| --- | --- |
-| `src/api.ts` | Convenience barrel export for API, types, and format helpers. |
-| `src/api/index.ts` | Barrel export for API modules. |
-| `src/api/client.ts` | Shared fetch client, base URL, JSON/error parsing, auth header injection, automatic token refresh. |
-| `src/api/authApi.ts` | Auth endpoints: phone lookup, login, OTP, set PIN, refresh, logout, verify PIN, me. |
-| `src/api/shopsApi.ts` | Shop list endpoint wrapper and backend-to-UI mapping. |
-| `src/api/peopleApi.ts` | People list endpoint wrapper and backend-to-UI mapping. |
-| `src/api/committeeApi.ts` | Committee management endpoint wrappers; UI not built yet. |
-| `src/api/mediaApi.ts` | Presigned upload URL wrapper; UI not built yet. |
-
-### Auth and context
-
-| File | Purpose |
-| --- | --- |
-| `src/context/AuthContext.tsx` | Stores/restores session, signs in/out, refreshes tokens, tracks inactivity, unlocks with M-PIN. |
-| `src/screens/auth/LoginScreen.tsx` | Multi-step auth UI for phone, PIN, OTP, and new PIN. |
-| `src/screens/auth/UnlockScreen.tsx` | Re-checks M-PIN after inactivity using `/auth/verify-pin`. |
-| `src/components/auth/Keypad.tsx` | Reusable numeric keypad for PIN input. |
-| `src/components/auth/PinDots.tsx` | Reusable four-dot PIN indicator. |
-
-### Navigation
-
-| File | Purpose |
-| --- | --- |
-| `src/navigation/RootNavigator.tsx` | Chooses login, unlock, or main app based on auth state. |
-| `src/navigation/AuthNavigator.tsx` | Auth navigator wrapper; currently returns `LoginScreen`. |
-| `src/navigation/MainTabs.tsx` | Main tab shell, header, account toggle, backend/mock data loading, role-aware tabs. |
-
-### Screens
-
-| File | Purpose |
-| --- | --- |
-| `src/screens/home/HomeScreen.tsx` | Dashboard summary cards using `Dashboard` data; currently mock-backed. |
-| `src/screens/shops/ShopsScreen.tsx` | Shop list and search UI; list is backend-backed when API is reachable. |
-| `src/screens/people/PeopleScreen.tsx` | People list and search UI; list is backend-backed when API is reachable. |
-| `src/screens/account/AccountScreen.tsx` | Shows current user details and sign-out button. |
-| `src/screens/money/FundScreen.tsx` | General fund screen using mock dashboard data. |
-| `src/screens/money/EventsScreen.tsx` | Event fund list using mock event data. |
-| `src/screens/committee/CommitteePlaceholder.tsx` | Placeholder for future committee management UI. |
-
-### UI components and styling
-
-| File | Purpose |
-| --- | --- |
-| `src/components/ui/PrimaryButton.tsx` | Shared button component with icon and loading state. |
-| `src/components/ui/SearchBox.tsx` | Shared search input. |
-| `src/components/ui/Metric.tsx` | Label/value metric block used on dashboard and event cards. |
-| `src/components/ui/SmallCard.tsx` | Compact dashboard card component. |
-| `src/components/ui/styles.ts` | Shared React Native styles for screens, cards, auth, tabs, inputs, and buttons. |
-
-### Theme, types, utilities, mock data
-
-| File | Purpose |
-| --- | --- |
-| `src/theme/colors.ts` | App color tokens. |
-| `src/theme/spacing.ts` | Spacing tokens. |
-| `src/theme/typography.ts` | Typography tokens. |
-| `src/theme/index.ts` | Theme barrel export. |
-| `src/types/index.ts` | Shared frontend types for user, session, dashboard, shop, person, events, committee. |
-| `src/utils/format.ts` | Formatting helpers for money, initials, and title case. |
-| `src/mockData.ts` | Demo dashboard, shops, people, and events used when backend modules are missing or unreachable. |
-
-## Backend project structure
-
-In the separate backend project, the important files are:
-
-| File / folder | Purpose |
-| --- | --- |
-| `README.md` | Backend-specific documentation and API reference. |
-| `pom.xml` | Maven/Spring Boot dependencies and build config. |
-| `compose.yaml` | Local Postgres and MinIO services. |
-| `src/main/resources/application.yaml` | Database, JWT, OTP, PIN, and S3/MinIO config. |
-| `src/main/resources/db/migration/` | Flyway database migrations. |
-| `src/main/java/in/dpbmandal/api/auth/` | Auth controllers, services, DTOs, OTP, refresh tokens. |
-| `src/main/java/in/dpbmandal/api/security/` | JWT filter, Spring Security config, current user principal. |
-| `src/main/java/in/dpbmandal/api/committee/` | Committee user management and roles. |
-| `src/main/java/in/dpbmandal/api/shop/` | Shop entity, controller, service, repository, DTOs. |
-| `src/main/java/in/dpbmandal/api/person/` | Person entity, controller, media controller, service, repository, DTOs. |
-| `src/main/java/in/dpbmandal/api/link/` | Shop/person link roles and link audit. |
-| `src/main/java/in/dpbmandal/api/media/` | S3/MinIO presigned upload/download support. |
-| `src/main/java/in/dpbmandal/api/audit/` | Aadhaar access logging. |
-| `src/main/java/in/dpbmandal/api/common/` | Shared config, errors, auditing base entity, pagination response. |
-
-## Recommended next build order
-
-1. Add shop detail screen using `GET /shops/{id}`.
-2. Add shop registration form using `POST /shops`.
-3. Add person profile screen using `GET /people/{id}`.
-4. Add member creation/linking forms using `POST /people` and `POST /people/{id}/links`.
-5. Add media capture/upload flow using `POST /media/upload-url`.
-6. Add committee management screens for admin users.
-7. Replace dashboard/fund/event mock data once backend money endpoints exist.
-8. Add tests for auth refresh, unlock flow, and API mapping.
+The seeded first admin is **8451963620** with no PIN set. Sign in, request the first-login code,
+and read the `DEV OTP` line from the API's console — there is no SMS provider in dev.
 
 ## Notes for production
 
-- Override `APP_JWT_SECRET` on the backend; the default is development-only.
-- Use HTTPS for production API traffic.
-- Configure real S3 credentials or production object storage.
-- Do not rely on the frontend to enforce permissions. The backend already re-checks roles on every request.
-- Avoid shipping backend zip contents such as `target/`, `.git/`, and `.idea/` in a production artifact.
+- Override `APP_JWT_SECRET` on the API; the default is development-only.
+- HTTPS for all API traffic.
+- Real S3 credentials, and **enable SSE on the media bucket** — Aadhaar images live there.
+- The client hides controls; the API enforces the rules. Assume a modified client.

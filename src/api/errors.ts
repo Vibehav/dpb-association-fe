@@ -1,0 +1,168 @@
+/**
+ * Typed API errors.
+ *
+ * The API returns a uniform envelope on every failure:
+ *
+ *     { "code": "<machine_code>", "message": "<human message>" }
+ *
+ * The code list below is authoritative: it mirrors every `ApiException.*("<code>", …)`
+ * throw site in `dpb-association-api`, plus the two codes written directly by
+ * `GlobalExceptionHandler` / `SecurityConfig`. Keep it in sync when the API adds a code —
+ * a code we don't know about still surfaces its `message`, but we can't branch on it.
+ */
+
+/** Codes the server can return. */
+export const SERVER_ERROR_CODES = [
+  // --- auth / session -------------------------------------------------------
+  "unauthorized", // 401 · no or unusable token (also the security entry point)
+  "invalid_token", // 401 · token failed signature/expiry parsing
+  "wrong_pin", // 401 · PIN mismatch (counts toward lockout)
+  "pin_locked", // 423 · 5 failures → 15-minute lock
+  "pin_not_set", // 409 · member has never set a PIN → first-login OTP
+  "invalid_refresh", // 401 · refresh token unknown, expired or already rotated
+  "invalid_reset_token", // 401 · reset token from otp/verify is bad or expired
+  "not_on_committee", // 404 · number is not an active committee member
+
+  // --- otp ------------------------------------------------------------------
+  "otp_invalid", // 400 · wrong code
+  "otp_expired", // 400 · code past its TTL
+  "otp_attempts_exhausted", // 400 · too many wrong codes for this request
+  "otp_throttled", // 429 · resend requested inside the 60s window
+
+  // --- shops ----------------------------------------------------------------
+  "duplicate_shop_number", // 409 · taken among active shops (case-insensitive)
+  "shop_not_found", // 404
+  "no_owner", // 409 · transfer attempted on a shop with no active owner link
+  "already_owner", // 400 · transfer target already holds the licence
+
+  // --- links ----------------------------------------------------------------
+  "owner_not_addable", // 400 · OWNER cannot be created via an add-link call
+  "owner_not_removable", // 400 · OWNER link is replaced by transfer, never removed
+  "renter_exists", // 409 · shop already has a renter
+  "already_linked", // 409 · this person already holds a role at this shop
+  "link_not_found", // 404
+
+  // --- people ---------------------------------------------------------------
+  "duplicate_phone", // 409 · phone taken among active people
+  "person_not_found", // 404
+  "person_input", // 400 · owner/existing-person input was malformed or empty
+  "consent_required", // 400 · consent must be true to store a member
+
+  // --- committee ------------------------------------------------------------
+  "committee_not_found", // 404
+  "self_action", // 400 · cannot change or remove yourself
+  "last_admin", // 400 · cannot remove/demote the last active admin
+
+  // --- media ----------------------------------------------------------------
+  "aadhaar_missing", // 404 · that side was never captured
+
+  // --- generic --------------------------------------------------------------
+  "forbidden", // 403 · authenticated but the role isn't allowed
+  "validation_error" // 400 · bean-validation failure; `message` names the field
+] as const;
+
+/** Codes this client synthesises when the request never produced an envelope. */
+export const CLIENT_ERROR_CODES = [
+  "network_error", // request never reached the server
+  "timeout", // aborted by our own timeout
+  "upload_failed", // presigned PUT to storage was rejected (never touches our API)
+  "unknown" // non-envelope error body (proxy HTML, a 500 stack, …)
+] as const;
+
+export type ServerErrorCode = (typeof SERVER_ERROR_CODES)[number];
+export type ClientErrorCode = (typeof CLIENT_ERROR_CODES)[number];
+export type ErrorCode = ServerErrorCode | ClientErrorCode;
+
+/**
+ * Every failure from the API layer. Carries the HTTP `status` and the machine `code`
+ * so callers can branch — the old client threw a bare `Error(message)`, which made the
+ * error-handling table in the integration doc (§10) impossible to implement.
+ *
+ * `status` is 0 for client-side failures (network, timeout).
+ */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code: ErrorCode | string;
+
+  constructor(status: number, code: ErrorCode | string, message: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+  }
+
+  /** True when the request failed before the server answered. */
+  get isNetworkFailure() {
+    return this.status === 0;
+  }
+}
+
+/** Narrowing helper: `isCode(error, "duplicate_phone", "already_linked")`. */
+export function isCode(error: unknown, ...codes: (ErrorCode | string)[]): error is ApiError {
+  return error instanceof ApiError && codes.includes(error.code);
+}
+
+/** Narrowing helper for a status class, e.g. `isStatus(error, 409)`. */
+export function isStatus(error: unknown, ...statuses: number[]): error is ApiError {
+  return error instanceof ApiError && statuses.includes(error.status);
+}
+
+/**
+ * Build an ApiError from a response body. Falls back sensibly when the body isn't our
+ * envelope — a reverse proxy returning HTML, or an unhandled 500 with a stack trace.
+ */
+export function apiErrorFromBody(status: number, rawBody: string): ApiError {
+  if (rawBody) {
+    try {
+      const parsed = JSON.parse(rawBody) as { code?: unknown; message?: unknown };
+      const code = typeof parsed.code === "string" && parsed.code ? parsed.code : null;
+      const message =
+        typeof parsed.message === "string" && parsed.message.trim() ? parsed.message.trim() : null;
+      if (code || message) {
+        return new ApiError(status, code ?? "unknown", message ?? fallbackMessage(status));
+      }
+    } catch {
+      // not JSON — fall through
+    }
+  }
+  return new ApiError(status, "unknown", fallbackMessage(status));
+}
+
+function fallbackMessage(status: number) {
+  if (status >= 500) return "The server had a problem. Please try again.";
+  if (status === 404) return "Not found.";
+  if (status === 403) return "You don't have permission for this.";
+  if (status === 401) return "Please sign in again.";
+  return `Request failed (${status}).`;
+}
+
+/**
+ * User-facing copy for the codes where the server's own message isn't the right thing
+ * to show. Anything not listed here should display `error.message` — the API writes
+ * decent human messages and they stay correct as rules change.
+ */
+const OVERRIDE_MESSAGES: Partial<Record<ErrorCode, string>> = {
+  wrong_pin: "Wrong M-PIN.",
+  pin_locked: "Locked after too many attempts. Try again later or reset your M-PIN.",
+  duplicate_phone: "A member with this phone number already exists.",
+  duplicate_shop_number: "A shop with this number already exists.",
+  renter_exists: "This shop already has a renter.",
+  already_linked: "This person is already linked to this shop.",
+  owner_not_addable: "The licence holder is set through registration or transfer.",
+  owner_not_removable: "The licence holder is changed through Transfer licence.",
+  otp_throttled: "Please wait a moment before requesting another code.",
+  forbidden: "You don't have permission for this.",
+  aadhaar_missing: "That side of the Aadhaar card hasn't been captured yet.",
+  network_error: "Can't reach the server. Check your connection and try again.",
+  timeout: "The request timed out. Please try again.",
+  upload_failed: "The image didn't upload. Check your connection and try again."
+};
+
+/** The message to show a user for any thrown value. */
+export function errorMessage(error: unknown, fallback = "Something went wrong."): string {
+  if (error instanceof ApiError) {
+    return OVERRIDE_MESSAGES[error.code as ErrorCode] ?? error.message ?? fallback;
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}

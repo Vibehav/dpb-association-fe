@@ -1,113 +1,85 @@
-import { AuthSession, Role } from "../types";
-import { request } from "./client";
+/**
+ * Auth endpoints. All public (`auth: false`) except `verify-pin`, which needs a bearer
+ * token even though it sits under the API's public `/auth/**` matcher.
+ *
+ * These return raw token pairs. Deliberately, they do **not** fetch `/me` and fold the
+ * role into a session object the way the old client did — the role must be re-derived
+ * from `GET /me` per screen, never captured at login (integration doc §2.3).
+ */
 
-type TokenPairResponse = {
-  accessToken: string;
-  refreshToken: string;
-  tokenType: string;
-  expiresInSeconds: number;
-};
-
-type MeResponse = {
-  id: string;
-  name: string;
-  role: "ADMIN" | "COLLECTOR" | "VIEWER";
-};
+import { request, type TokenPair } from "./client";
+import type { OtpPurpose, PhoneCheckResponse, ResetTokenResponse } from "./types";
 
 export const authApi = {
-  lookupPhone(phone: string) {
-    return request<{ onCommittee: boolean; firstName: string | null; pinSet: boolean | null }>(
-      "/auth/phone",
-      {
-        method: "POST",
-        body: JSON.stringify({ phone })
-      }
-    );
-  },
-
-  async login(phone: string, pin: string): Promise<AuthSession> {
-    const tokens = await request<TokenPairResponse>("/auth/login", {
+  /** Is this number on the committee, and has a PIN ever been set? */
+  checkPhone(phone: string) {
+    return request<PhoneCheckResponse>("/auth/phone", {
       method: "POST",
-      body: JSON.stringify({ phone, pin })
+      body: { phone },
+      auth: false
     });
-
-    const me = await authApi.me(tokens.accessToken);
-
-    return {
-      token: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      user: {
-        id: me.id,
-        name: me.name,
-        phone,
-        role: me.role.toLowerCase() as Role
-      }
-    };
   },
 
-  async setPinAndLogin(phone: string, resetToken: string, newPin: string): Promise<AuthSession> {
-    const tokens = await authApi.setPin(resetToken, newPin);
-    const me = await authApi.me(tokens.accessToken);
-
-    return {
-      token: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      user: {
-        id: me.id,
-        name: me.name,
-        phone,
-        role: me.role.toLowerCase() as Role
-      }
-    };
+  /** 401 `wrong_pin` · 423 `pin_locked` · 409 `pin_not_set` · 404 `not_on_committee`. */
+  login(phone: string, pin: string) {
+    return request<TokenPair>("/auth/login", {
+      method: "POST",
+      body: { phone, pin },
+      auth: false
+    });
   },
 
-  me(token: string) {
-    return request<MeResponse>("/me", {}, token);
+  /** 202 on success · 429 `otp_throttled` inside the 60s resend window. */
+  requestOtp(phone: string, purpose: OtpPurpose) {
+    return request<void>("/auth/otp/request", {
+      method: "POST",
+      body: { phone, purpose },
+      auth: false
+    });
   },
 
+  /** Returns a short-lived reset token. Keep it in memory only — never on disk. */
+  verifyOtp(phone: string, code: string) {
+    return request<ResetTokenResponse>("/auth/otp/verify", {
+      method: "POST",
+      body: { phone, code },
+      auth: false
+    });
+  },
+
+  /** Sets the PIN and signs the member in. Used for first-login, forgot and change. */
+  setPin(resetToken: string, newPin: string) {
+    return request<TokenPair>("/auth/pin/set", {
+      method: "POST",
+      body: { resetToken, newPin },
+      auth: false
+    });
+  },
+
+  /** Rotates the pair — the old refresh token is revoked, so always persist the new one. */
+  refresh(refreshToken: string) {
+    return request<TokenPair>("/auth/token/refresh", {
+      method: "POST",
+      body: { refreshToken },
+      auth: false
+    });
+  },
+
+  /** Revokes this device's refresh token only. */
   logout(refreshToken: string) {
     return request<void>("/auth/logout", {
       method: "POST",
-      body: JSON.stringify({ refreshToken })
+      body: { refreshToken },
+      auth: false
     });
   },
 
-  requestOtp(phone: string, purpose: "FIRST_LOGIN" | "PIN_RESET") {
-    return request<void>("/auth/otp/request", {
-      method: "POST",
-      body: JSON.stringify({ phone, purpose })
-    });
-  },
-
-  verifyOtp(phone: string, code: string) {
-    return request<{ resetToken: string }>("/auth/otp/verify", {
-      method: "POST",
-      body: JSON.stringify({ phone, code })
-    });
-  },
-
-  setPin(resetToken: string, newPin: string) {
-    return request<TokenPairResponse>("/auth/pin/set", {
-      method: "POST",
-      body: JSON.stringify({ resetToken, newPin })
-    });
-  },
-
-  refresh(refreshToken: string) {
-    return request<TokenPairResponse>("/auth/token/refresh", {
-      method: "POST",
-      body: JSON.stringify({ refreshToken })
-    });
-  },
-
-  verifyPin(token: string, pin: string) {
-    return request<void>(
-      "/auth/verify-pin",
-      {
-        method: "POST",
-        body: JSON.stringify({ pin })
-      },
-      token
-    );
+  /**
+   * App-unlock PIN check. 204 on success, 401 `wrong_pin` on failure — and a failure
+   * counts toward the server's 5-attempt lockout, which is why the client never retries
+   * this call. Requires a *valid* access token; see `AuthContext.unlock`.
+   */
+  verifyPin(pin: string) {
+    return request<void>("/auth/verify-pin", { method: "POST", body: { pin } });
   }
 };

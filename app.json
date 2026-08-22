@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "Market Association",
+    "slug": "market-association-record-app",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./uploads/logo-1784996881407.jpeg",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./uploads/logo-1784996881407.jpeg",
+      "resizeMode": "contain",
+      "backgroundColor": "#FBF9F6"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.marketassociation.records"
+    },
+    "android": {
+      "package": "com.marketassociation.records",
+      "adaptiveIcon": {
+        "foregroundImage": "./uploads/logo-1784996881407.jpeg",
+        "backgroundColor": "#FBF9F6"
+      },
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Market Association to attach member photos, Aadhaar images and bill photos.",
+          "cameraPermission": "Allow Market Association to capture member photos, Aadhaar images and bill photos."
+        }
+      ]
+    ]
+  }
+}

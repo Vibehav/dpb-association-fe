@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  doc-page:not(:defined){visibility:hidden}
+  h1,h2,h3,h4{text-wrap:balance}
+  p,li{text-wrap:pretty}
+  table{border-collapse:collapse;width:100%}
+  a{color:#8E1B22}
+  a:hover{color:#6E1319}
+</style>
+<script src="./doc-page.js"></script>
+</helmet>
+
+<doc-page margin="0.7in">
+
+<div style="font-family:'Helvetica Neue',Helvetica,system-ui,sans-serif;color:#1A1613;font-size:10.5pt;line-height:1.6">
+
+<div style="border-bottom:2px solid #1A1613;padding-bottom:14px;margin-bottom:26px">
+  <div style="font-family:'IBM Plex Mono',monospace;font-size:8.5pt;letter-spacing:.12em;color:#8A6A2B">FUNCTIONAL SPECIFICATION · VERSION 1.0 · 01 AUGUST 2026</div>
+  <h1 style="font-family:'Instrument Serif',Georgia,serif;font-size:30pt;line-height:1.1;margin:12px 0 8px;font-weight:400">Market Association Record App</h1>
+  <div style="font-size:11pt;color:#5A5148">Members, contributions, funds and event spending for a 1,000-shop market association. Mobile-first, always online.</div>
+  <div style="font-family:'IBM Plex Mono',monospace;font-size:8.5pt;color:#8A8177;margin-top:12px">Stack: React Native (client) · Java (API) · PostgreSQL (store) &nbsp;·&nbsp; Reference prototype: “Market Association App”</div>
+</div>
+
+<h2 style="font-family:'Instrument Serif',Georgia,serif;font-size:17pt;font-weight:400;margin:0 0 10px;padding-bottom:6px;border-bottom:1px solid #DDD5C9">1 · What the app is for</h2>
+
+<p style="margin:0 0 12px">A market association (≈1,000 shops, ≈2,300 people) keeps three registers on paper today: who works in the market, what money comes in, and what money goes out. This app replaces all three, on the phones of a committee of five to six people.</p>
+
+<p style="margin:0 0 12px">Three jobs, in order of daily use:</p>
+<ol style="margin:0 0 14px;padding-left:22px">
+  <li style="margin-bottom:6px"><strong>Collect money and issue a receipt</strong> — a collector standing in front of a shopkeeper takes ₹2,100, records it, and the receipt reaches the member on WhatsApp before he walks away.</li>
+  <li style="margin-bottom:6px"><strong>Keep the register of shops and people</strong> — who holds the licence, who rents it, who works there, with a photo and an Aadhaar copy on file.</li>
+  <li style="margin-bottom:6px"><strong>Account for spending</strong> — every rupee that leaves the association, tagged to a festival or to the general fund, with a bill photo, ending in a printable statement for the general body meeting.</li>
+</ol>
+
+<div style="background:#F7F3EC;border-left:3px solid #8E1B22;padding:12px 14px;margin:0 0 18px;break-inside:avoid">
+  <strong>Non-negotiable design decisions</strong>
+  <ul style="margin:8px 0 0;padding-left:20px">
+    <li>Always online. No offline entry, no later sync. An entry exists only once the server has it.</li>
+    <li>Money in and money out are separated by role. Collectors bring money in; only the treasurer records money going out, and only the treasurer can see it.</li>
+    <li>Nothing financial is ever deleted or silently edited. Corrections happen by cancelling and re-issuing, with a reason and a name attached.</li>
+    <li>English interface. Rupee amounts in Indian digit grouping (₹4,82,500).</li>
+  </ul>
+</div>
+
+<h2 style="font-family:'Instrument Serif',Georgia,serif;font-size:17pt;font-weight:400;margin:22px 0 10px;padding-bottom:6px;border-bottom:1px solid #DDD5C9">2 · Users and roles</h2>
+
+<p style="margin:0 0 12px">Only committee members log in. Shopkeepers never use the app; they receive receipts on WhatsApp. There are exactly three roles, decided by the phone number that signs in.</p>
+
+<table style="font-size:9.5pt;margin:0 0 14px;break-inside:avoid">
+  <thead>
+    <tr style="background:#F1ECE4">
+      <th style="text-align:left;padding:7px 9px;border:1px solid #DDD5C9;width:26%">Role</th>
+      <th style="text-align:left;padding:7px 9px;border:1px solid #DDD5C9">Can do</th>
+      <th style="text-align:left;padding:7px 9px;border:1px solid #DDD5C9;width:30%">Cannot do</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="padding:7px 9px;border:1px solid #DDD5C9;vertical-align:top"><strong>Admin</strong><br><span style="color:#8A8177">Treasurer, secretary. More than one allowed.</span></td>
+      <td style="padding:7px 9px;border:1px solid #DDD5C9;vertical-align:top">Everything a collector can, plus: view stored Aadhaar images, record and view all spending, statements and reports, cancel and correct entries, transfer a shop licence, set the annual fee and raise the demand, confirm cash handovers, manage the committee.</td>
+      <td style="padding:7px 9px;border:1px solid #DDD5C9;vertical-align:top">Change their own role or remove themselves. Remove the last remaining admin.</td>
+    </tr>
+    <tr style="background:#FBF9F6">
+      <td style="padding:7px 9px;border:1px solid #DDD5C9;vertical-align:top"><strong>Collector</strong><br><span style="color:#8A8177">Four to five people, usually by wing.</span></td>
+      <td style="padding:7px 9px;border:1px solid #DDD5C9;vertical-align:top">Register shops and members, capture photos and Aadhaar, edit shop and member details, record contributions and issue receipts, reprint a receipt, hand over cash.</td>
+      <td style="padding:7px 9px;border:1px solid #DDD5C9;vertical-align:top">View any stored Aadhaar image. See or record any spending. See statements or reports. Cancel or correct an entry. Transfer a licence.</td>
+    </tr>
+    <tr>
+      <td style="padding:7px 9px;border:1px solid #DDD5C9;vertical-align:top"><strong>Viewer</strong><br><span style="color:#8A8177">President, non-executive members.</span></td>
+      <td style="padding:7px 9px;border:1px solid #DDD5C9;vertical-align:top">Read the register of shops and members, and money collected.</td>
+      <td style="padding:7px 9px;border:1px solid #DDD5C9;vertical-align:top">Record or change anything at all. See spending, statements or Aadhaar images.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p style="margin:0 0 12px"><strong>Rights are re-derived from the server on every screen, not fixed at login.</strong> If an admin demotes a collector while that collector is using the app, the next screen he opens already reflects it. Client-side gating is convenience only — every endpoint must enforce the same rule.</p>
+
+<h2 style="font-family:'Instrument Serif',Georgia,serif;font-size:17pt;font-weight:400;margin:22px 0 10px;padding-bottom:6px;border-bottom:1px solid #DDD5C9">3 · Sign-in</h2>
+
+<p style="margin:0 0 12px">Phone number, then a four-digit M-PIN on an in-app keypad. The number determines the role — there is no role picker and no way to elevate yourself inside the app.</p>
+
+<ol style="margin:0 0 14px;padding-left:22px">
+  <li style="margin-bottom:6px"><strong>Number</strong> — 10 digits, +91 fixed. If the number is not on the committee, the app says so plainly and stops. If it is, it greets the person by first name (confirms the right number was typed).</li>
+  <li style="margin-bottom:6px"><strong>M-PIN</strong> — four digits; submits automatically on the fourth. Wrong PIN clears the field and offers a reset.</li>
+  <li style="margin-bottom:6px"><strong>Forgot M-PIN</strong> — a six-digit OTP by SMS, then set a new PIN, then straight into the app. OTP cost is only paid on resets, never on ordinary logins.</li>
+  <li style="margin-bottom:6px"><strong>Change M-PIN</strong> — from Account; runs the same OTP → new PIN flow.</li>
+  <li style="margin-bottom:6px"><strong>Sign out</strong> — from Account, returns to the number screen.</li>
+</ol>
+
+<p style="margin:0 0 12px">A new committee member is added by an admin with name, number and role only. The admin never types a PIN for them; they receive a one-time code and set their own on first sign-in. A removed member cannot sign in, and their PIN and session are invalidated immediately.</p>
+
+<p style="margin:0 0 12px"><em>To specify during development:</em> session lifetime and whether the app re-asks for the M-PIN when reopened; lockout after repeated wrong PINs; whether a number may be signed in on two devices.</p>
+
+<h2 style="font-family:'Instrument Serif',Georgia,serif;font-size:17pt;font-weight:400;margin:22px 0 10px;padding-bottom:6px;border-bottom:1px solid #DDD5C9">4 · Core concepts and the data behind them</h2>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">4.1 Shop</h3>
+<p style="margin:0 0 10px">The anchor of the whole register. A person always exists in relation to at least one shop.</p>
+<table style="font-size:9.5pt;margin:0 0 14px;break-inside:avoid">
+  <thead><tr style="background:#F1ECE4"><th style="text-align:left;padding:6px 9px;border:1px solid #DDD5C9;width:30%">Field</th><th style="text-align:left;padding:6px 9px;border:1px solid #DDD5C9">Notes</th></tr></thead>
+  <tbody>
+    <tr><td style="padding:6px 9px;border:1px solid #DDD5C9">Shop number</td><td style="padding:6px 9px;border:1px solid #DDD5C9">e.g. A-12, L3-06. Unique across the market — enforce in the database, not only in the UI.</td></tr>
+    <tr style="background:#FBF9F6"><td style="padding:6px 9px;border:1px solid #DDD5C9">Business name</td><td style="padding:6px 9px;border:1px solid #DDD5C9">The name on the board. Displayed as the shop’s title.</td></tr>
+    <tr><td style="padding:6px 9px;border:1px solid #DDD5C9">Wing / lane</td><td style="padding:6px 9px;border:1px solid #DDD5C9">A Wing, B Wing, Lane 3 — the list must be editable by the association, not hardcoded.</td></tr>
+    <tr style="background:#FBF9F6"><td style="padding:6px 9px;border:1px solid #DDD5C9">Floor</td><td style="padding:6px 9px;border:1px solid #DDD5C9">Ground floor, First floor, Open stall.</td></tr>
+    <tr><td style="padding:6px 9px;border:1px solid #DDD5C9">Run by owner / rented out</td><td style="padding:6px 9px;border:1px solid #DDD5C9">Informational. The renter is recorded as a person linked to the shop.</td></tr>
+    <tr style="background:#FBF9F6"><td style="padding:6px 9px;border:1px solid #DDD5C9">Fee status (current year)</td><td style="padding:6px 9px;border:1px solid #DDD5C9">Derived from the fee cycle: no demand raised / pending with amount / paid with amount and date.</td></tr>
+    <tr><td style="padding:6px 9px;border:1px solid #DDD5C9">Fee history</td><td style="padding:6px 9px;border:1px solid #DDD5C9">One row per closed year, holding what <em>this shop</em> actually paid, not the year’s nominal rate.</td></tr>
+    <tr style="background:#FBF9F6"><td style="padding:6px 9px;border:1px solid #DDD5C9">Former licence holder</td><td style="padding:6px 9px;border:1px solid #DDD5C9">Written on transfer: name and the date the licence ended.</td></tr>
+  </tbody>
+</table>
+<p style="margin:0 0 12px">Rent agreement dates are deliberately <strong>not</strong> stored — the association does not police tenancies. Business category and a shop photo were discussed and deferred.</p>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">4.2 Person (member)</h3>
+<table style="font-size:9.5pt;margin:0 0 12px;break-inside:avoid">
+  <thead><tr style="background:#F1ECE4"><th style="text-align:left;padding:6px 9px;border:1px solid #DDD5C9;width:30%">Field</th><th style="text-align:left;padding:6px 9px;border:1px solid #DDD5C9">Notes</th></tr></thead>
+  <tbody>
+    <tr><td style="padding:6px 9px;border:1px solid #DDD5C9">Full name</td><td style="padding:6px 9px;border:1px solid #DDD5C9">As on the Aadhaar card.</td></tr>
+    <tr style="background:#FBF9F6"><td style="padding:6px 9px;border:1px solid #DDD5C9">Phone</td><td style="padding:6px 9px;border:1px solid #DDD5C9">10 digits, +91. Used for search and calls.</td></tr>
+    <tr><td style="padding:6px 9px;border:1px solid #DDD5C9">WhatsApp number</td><td style="padding:6px 9px;border:1px solid #DDD5C9">Defaults to “same as phone”; separate when the member says so. Receipts go here.</td></tr>
+    <tr style="background:#FBF9F6"><td style="padding:6px 9px;border:1px solid #DDD5C9">Address</td><td style="padding:6px 9px;border:1px solid #DDD5C9">Residential, free text.</td></tr>
+    <tr><td style="padding:6px 9px;border:1px solid #DDD5C9">Member photo</td><td style="padding:6px 9px;border:1px solid #DDD5C9">Mandatory. A face photo so the person is identifiable at the counter. Retakeable.</td></tr>
+    <tr style="background:#FBF9F6"><td style="padding:6px 9px;border:1px solid #DDD5C9">Aadhaar front / back</td><td style="padding:6px 9px;border:1px solid #DDD5C9">Front mandatory, back optional. See §4.3.</td></tr>
+    <tr><td style="padding:6px 9px;border:1px solid #DDD5C9">Aadhaar last 4 digits</td><td style="padding:6px 9px;border:1px solid #DDD5C9">Optional. Lets a record be matched without opening the image.</td></tr>
+    <tr style="background:#FBF9F6"><td style="padding:6px 9px;border:1px solid #DDD5C9">Consent flag</td><td style="padding:6px 9px;border:1px solid #DDD5C9">Mandatory tick: the member agreed to the association holding their Aadhaar copy and contact details.</td></tr>
+    <tr><td style="padding:6px 9px;border:1px solid #DDD5C9">Added on / added by</td><td style="padding:6px 9px;border:1px solid #DDD5C9">Captured automatically from the signed-in user.</td></tr>
+    <tr style="background:#FBF9F6"><td style="padding:6px 9px;border:1px solid #DDD5C9">Shop links</td><td style="padding:6px 9px;border:1px solid #DDD5C9">One or many. See §4.4.</td></tr>
+  </tbody>
+</table>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">4.3 Aadhaar handling — the strictest rule in the app</h3>
+<div style="background:#FBF3F2;border-left:3px solid #8E1B22;padding:12px 14px;margin:0 0 14px;break-inside:avoid">
+  <p style="margin:0 0 8px">A collector <strong>captures</strong> the Aadhaar image but can <strong>never view it again</strong> — not on the profile, not in the edit sheet, not in any list. Only an admin can open a stored Aadhaar image.</p>
+  <ul style="margin:0;padding-left:20px">
+    <li>To a non-admin the image area is blurred and locked, showing only who captured it and when.</li>
+    <li>A collector may <strong>re-capture</strong> if the copy is unclear; the new copy replaces the old one for the admin to verify, and the act is logged.</li>
+    <li>Store the images encrypted at rest, serve them only through an authenticated, admin-only, short-lived URL — never a public bucket path. Log every view: who, when, whose record.</li>
+  </ul>
+</div>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">4.4 Shop links — one person, many shops</h3>
+<p style="margin:0 0 10px">A person is joined to a shop by a <em>link</em> carrying a role: <strong>Owner</strong> (licence holder), <strong>Renter</strong>, <strong>Worker</strong> or <strong>Staff</strong>. A person may hold any number of links: owner of A-12 and renter of L3-11 and L3-06 simultaneously. This is normal in the market and must not be modelled as one shop per person.</p>
+<ul style="margin:0 0 12px;padding-left:20px">
+  <li><strong>Owner links are special.</strong> They are created only by shop registration or by Transfer licence — never from the ordinary “link a shop” action, which offers Renter, Worker and Staff only.</li>
+  <li>A shop lists a person under the role they hold <em>at that shop</em>, so the same person can appear as owner at one shop and renter at another.</li>
+  <li>A shop may temporarily have no owner (during a transfer, or if a licence holder is removed). The app must display “Licence holder not added yet” and keep working; fee collection is blocked until an owner exists.</li>
+  <li>A person with no links at all is displayed as “No shop linked”. Creating such a person is currently not allowed — see §12.</li>
+</ul>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">4.5 Funds</h3>
+<p style="margin:0 0 10px">Money is held in separated pots. This separation is the client’s explicit requirement and every total in the app respects it.</p>
+<ul style="margin:0 0 12px;padding-left:20px">
+  <li><strong>General fund</strong> — annual association fees, one-off giving, outside sponsorship; pays running costs (cleaning, CCTV, office).</li>
+  <li><strong>Event fund</strong> — one per event that collects its own donations (Ganeshotsav, Shiv Jayanti). Kept apart from the general fund and from other events.</li>
+  <li><strong>General-funded event</strong> — an event created with no fund of its own. It has <strong>no income at all</strong>: no donations can be tagged to it, it shows no Income tab and no balance, only what was spent on it out of the general fund.</li>
+</ul>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">4.6 Contribution (the ledger entry)</h3>
+<p style="margin:0 0 10px">One immutable row per receipt: member, amount, purpose (annual fee / event donation / one-off), the fund or event credited, payment mode (Cash, UPI, Cheque, Bank), notes, receipt number, timestamp, collector, and a cancellation block (cancelled flag, reason, cancelling admin, replacement receipt number).</p>
+<p style="margin:0 0 12px"><strong>All balances are derived from this ledger, never stored as an editable number.</strong> A cancelled row is excluded from every total, everywhere: the member’s lifetime total, the People list row, the fund balance, the event’s collected figure, the event income list and the printed statement.</p>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">4.7 Spending</h3>
+<p style="margin:0 0 10px">What it was for, vendor paid, amount, payment mode, date, bill photo, notes, and which fund paid — plus, for an event, whether it was paid from the <em>event fund</em> or from the <em>general fund</em>. Recorded and visible to admins only.</p>
+<div style="background:#F7F3EC;border-left:3px solid #8A6A2B;padding:12px 14px;margin:0 0 14px;break-inside:avoid">
+  <strong>The double-counting rule.</strong> An event bill paid out of the general fund is listed under the event (so the event’s true cost is complete) and tagged “Paid from general fund”, but it is deducted from the <em>general</em> fund only. The event balance is therefore <code style="font-family:'IBM Plex Mono',monospace">collected − spending paid from its own fund − any balance already carried out</code>. The same formula must be used on the event page, the events list and the dashboard, or the three screens will disagree.
+</div>
+<p style="margin:0 0 12px">Spending categories and an “approved by” field were built and then <strong>removed</strong> — with only the treasurer entering spending, approval is meaningless, and the statement now lists each spending on its own line instead of category totals.</p>
+
+<h2 style="font-family:'Instrument Serif',Georgia,serif;font-size:17pt;font-weight:400;margin:22px 0 10px;padding-bottom:6px;border-bottom:1px solid #DDD5C9">5 · Navigation</h2>
+
+<p style="margin:0 0 12px">A bottom tab bar with the home tab in the middle, and the signed-in user’s initials at the top right which open the Account screen (Account is not a tab).</p>
+<table style="font-size:9.5pt;margin:0 0 14px;break-inside:avoid">
+  <thead><tr style="background:#F1ECE4"><th style="text-align:left;padding:6px 9px;border:1px solid #DDD5C9;width:34%">Tab</th><th style="text-align:left;padding:6px 9px;border:1px solid #DDD5C9">Visible to</th></tr></thead>
+  <tbody>
+    <tr><td style="padding:6px 9px;border:1px solid #DDD5C9">Shops · People · <strong>Home</strong> · Events</td><td style="padding:6px 9px;border:1px solid #DDD5C9">Everyone</td></tr>
+    <tr style="background:#FBF9F6"><td style="padding:6px 9px;border:1px solid #DDD5C9">Fund (general fund ledger)</td><td style="padding:6px 9px;border:1px solid #DDD5C9">Admin only — inserted between People and Events, giving admins five tabs and others four</td></tr>
+  </tbody>
+</table>
+<p style="margin:0 0 12px">Deeper screens (shop, member, receipt, statement, fee cycle, committee, cash handovers, cancelled receipts) push on top with a back arrow; the relevant tab stays highlighted. Destructive or multi-field actions use bottom sheets rather than new screens.</p>
+
+<h2 style="font-family:'Instrument Serif',Georgia,serif;font-size:17pt;font-weight:400;margin:22px 0 10px;padding-bottom:6px;border-bottom:1px solid #DDD5C9">6 · Screen by screen</h2>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">6.1 Home (dashboard)</h3>
+<p style="margin:0 0 10px"><em>Admin sees:</em></p>
+<ul style="margin:0 0 10px;padding-left:20px">
+  <li><strong>General fund balance</strong> (large), with collected and spent underneath. Tapping opens the Fund ledger.</li>
+  <li><strong>Event funds · kept separate</strong> — combined balance of all own-fund events; tapping opens Events.</li>
+  <li>Two small tiles: <strong>shops on record</strong> with people linked, and <strong>fees pending</strong> with the amount due.</li>
+  <li><strong>Active event card</strong> — the first event with status Active: collected, spent, remaining, a three-part progress bar (own-fund spend / general-fund support / unspent) and a line naming how much came from the general fund. A general-funded active event instead shows a single “spent from general fund” figure. No active event, no card.</li>
+  <li><strong>Pending collections</strong> — shops with the fee unpaid; each row taps straight into a pre-filled collection. If no demand has been raised, an explanatory line replaces the list.</li>
+  <li><strong>Top contributors this year</strong> — three rows, tapping opens the member.</li>
+</ul>
+<p style="margin:0 0 12px"><em>Collector and viewer see the same screen with every outgoing figure removed:</em> “Collected into the general fund” instead of a balance and no spent column, event funds shown as collected, and the active-event card showing collected only. A “recent activity” feed was designed and then dropped as noise.</p>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">6.2 Shops</h3>
+<p style="margin:0 0 10px">Search by shop number, business name or any person at the shop; filter chips for All / A Wing / B Wing / Lane 3; a count line (“6 of 1,024 shops shown”). Each card: shop number and wing, business name, licence holder (and “Rented to …” when applicable), how many workers are on record, and a fee chip — Fee paid / Due, or nothing at all when no demand has been raised. “+ Register new shop” at the bottom (not for viewers).</p>
+<p style="margin:0 0 12px"><em>To specify during development:</em> at 1,000 shops the list must be server-paginated and the search server-side.</p>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">6.3 Shop detail</h3>
+<ul style="margin:0 0 12px;padding-left:20px">
+  <li>Header: number, business name, wing and floor, “Previously: <em>name</em> · licence held till <em>date</em>” after a transfer, and an <strong>Edit</strong> button (admin and collector).</li>
+  <li><strong>Fee card</strong> for the current year: amount and status, the meeting note, and a <strong>Collect</strong> button when a demand is open and unpaid. Collecting with no licence holder on record is refused with a prompt to add one.</li>
+  <li><strong>Earlier years</strong> — what this shop paid each closed year, with mode and receipt number; a newly registered shop says it has no earlier years.</li>
+  <li><strong>People at this shop</strong> — each with initials, name, phone and their role at this shop; taps through to the member.</li>
+  <li><strong>+ Add person to this shop</strong> → search sheet (§7.3). <strong>Transfer licence</strong> → admin only (§7.4).</li>
+</ul>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">6.4 People</h3>
+<p style="margin:0 0 12px">Search by name, phone or shop number; filter chips All / Owners / Renters / Workers / Staff. Each row shows the person, their shops and roles, their <strong>lifetime given total</strong>, their last contribution, and two actions: <strong>History</strong> (opens the profile) and <strong>Collect</strong> (straight into the collection form; hidden for viewers). Newly added members appear at the top. “+ Add a member” opens the same search-first sheet.</p>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">6.5 Member profile</h3>
+<ul style="margin:0 0 12px;padding-left:20px">
+  <li>Header with initials, name, every role and shop they hold, and <strong>Edit</strong>.</li>
+  <li><strong>Member photo</strong> with capture date and a Retake action.</li>
+  <li><strong>Shops &amp; roles</strong> — one row per link, tapping opens that shop; “+ Link another shop &amp; role” at the bottom.</li>
+  <li><strong>Details</strong> — phone, WhatsApp, address, added on / verified by; <strong>Call</strong> and <strong>WhatsApp</strong> actions.</li>
+  <li><strong>Aadhaar on file</strong> — blurred and locked for non-admins (§4.3).</li>
+  <li><strong>Contribution history</strong> — every receipt: purpose, date, mode, receipt number, amount. <strong>Reprint</strong> on each row for everyone; <strong>Correct</strong> and <strong>Cancel</strong> for admins only. Cancelled rows are struck through and marked CANCELLED, excluded from the total shown at the top, with a note saying so. A corrected row shows “replaces DPB/…/0344”.</li>
+  <li><strong>Record a contribution</strong> at the bottom (not for viewers).</li>
+</ul>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">6.6 Collection form</h3>
+<ul style="margin:0 0 12px;padding-left:20px">
+  <li>The payer at the top with a <strong>Change</strong> link.</li>
+  <li><strong>Amount</strong> — large numeric field plus quick chips (₹501, ₹1,001, ₹2,100, ₹5,100).</li>
+  <li><strong>Purpose</strong> — Annual fee / Event donation / One-off.</li>
+  <li><strong>Tag to event</strong> — only for Event donation, and only <strong>open, own-fund</strong> events are listed. Closed events and general-funded events never appear. If nothing is open, a line tells the collector to record it as a one-off or create an event.</li>
+  <li><strong>Payment mode</strong> — Cash / UPI / Cheque / Bank. Cash adds to the collector’s cash-in-hand (§8).</li>
+  <li><strong>Notes</strong> — cheque number, remarks.</li>
+  <li>A footer line showing the receipt number about to be issued, the collector’s name, and which fund will be credited.</li>
+  <li><strong>Save &amp; generate receipt</strong> — refuses a zero amount, then writes the ledger entry, credits the fund, marks the shop’s fee paid when the purpose is Annual fee, and opens the receipt.</li>
+</ul>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">6.7 Receipt</h3>
+<p style="margin:0 0 10px">A printable card: association logo, name, address and registration number; receipt number and timestamp; “Received with thanks from” the member with shop and role; purpose and amount; the amount <strong>in words</strong> (Indian numbering — lakh, crore); payment mode; collected by; and the treasurer’s signature block.</p>
+<p style="margin:0 0 12px">Actions: <strong>Send PDF on WhatsApp</strong> to the member’s WhatsApp number, <strong>Print</strong> (downloads the PDF) and <strong>New entry</strong>. Receipt numbers run as one series per financial year — <code style="font-family:'IBM Plex Mono',monospace">DPB/2026-27/0428</code> — derived from the active fee cycle, never hardcoded, and never reused.</p>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">6.8 Events</h3>
+<p style="margin:0 0 10px">One card per event: name, dates, status chip (Active / Open / Closed), and figures — In / Out / Balance for an own-fund event, or a single “spent from general fund” for a general-funded one. Non-admins see collected only. A closed event that carried its balance out says so on the dates line. “+ Create event” at the bottom.</p>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">6.9 Event detail</h3>
+<ul style="margin:0 0 12px;padding-left:20px">
+  <li><strong>Own-fund event, admin:</strong> collected / spent / remaining, a note when part of the spending came from the general fund, then tabs <strong>Spendings</strong> and <strong>Income</strong>.</li>
+  <li><strong>Spendings</strong> — each entry: what it was for, vendor, amount, and tags for mode, date, “Bill attached” or “Bill missing”, and “Paid from general fund” where applicable. Admins get Edit and Delete per entry. “+ Add spending” unless the event is closed.</li>
+  <li><strong>Income</strong> — contributor rows with shop, mode, date and receipt number; cancelled rows struck through and excluded from the total; a balancing “Other contributions” row for the remainder.</li>
+  <li><strong>General-funded event:</strong> a single “Spent from general fund” figure, no Income tab, no balance, and no Paid-from question when adding a spending.</li>
+  <li><strong>Non-admins:</strong> collected only, with “Spendings are visible to the treasurer only”. No Spendings tab, no statement button.</li>
+  <li><strong>View event statement</strong> and <strong>Close this event</strong> (admin only).</li>
+</ul>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">6.10 Fund (general fund ledger) — admin only</h3>
+<p style="margin:0 0 12px">The same layout as an event, for the general fund: collected, spent, balance; Spendings and Income tabs; add spending; and a printable general fund statement. Fees and one-off giving appear as income; running costs and “Event support · <em>event name</em>” appear as spending.</p>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">6.11 Statement (printable) — admin only</h3>
+<p style="margin:0 0 12px">Logo, association name, “INCOME &amp; EXPENDITURE STATEMENT · <em>event or fund</em>”. Income lines (cancelled receipts omitted) with a balancing “Other contributions” row and a total; expenditure listed <strong>one line per spending</strong> — what it was for, with the vendor — then the total, then “Less: met by the general fund” where applicable; closing with “Balance retained in event fund”, “Balance carried to general fund”, “Met in full from the general fund” or “Closing balance · general fund”, whichever is true. Export PDF at the bottom.</p>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">6.12 Account</h3>
+<p style="margin:0 0 10px">Reached from the initials at the top right; tapping again closes it. Contents, in order, gated by role:</p>
+<ul style="margin:0 0 12px;padding-left:20px">
+  <li>Association identity, signed-in name, role and number; <strong>Change M-PIN</strong>, <strong>Sign out</strong>.</li>
+  <li><strong>Your rights</strong> — a plain-language statement of what this role can and cannot do.</li>
+  <li><strong>Cash with you</strong> and <strong>Hand over to the treasurer</strong> — whenever the user is holding cash (§8).</li>
+  <li>Admin only: <strong>Cancelled receipts</strong>, <strong>Cash handovers</strong>, <strong>Annual fee cycle</strong>, <strong>Committee members &amp; roles</strong>, and the <strong>Reports</strong> list.</li>
+  <li>Association settings: WhatsApp sender number, receipt series, annual fee, last backup.</li>
+</ul>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">6.13 Committee members &amp; roles — admin only</h3>
+<p style="margin:0 0 12px">Everyone who can sign in, with a role chip; removed members greyed with “Removed <em>date</em>”. Tapping opens a sheet to change role, reset their M-PIN (sends a code; the admin never sees a PIN) or remove them — with two guards: you cannot change or remove <strong>yourself</strong> (another admin must), and the association must always keep at least one active admin. “+ Add committee member” takes name, number and role, with a duplicate-number check and a plain description of what each role can do. No collection figures appear here — that information lives on each entry and receipt.</p>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">6.14 Annual fee cycle — admin only</h3>
+<p style="margin:0 0 12px">See §9.</p>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">6.15 Cash handovers — admin only</h3>
+<p style="margin:0 0 12px">See §8.</p>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">6.16 Cancelled receipts — admin only</h3>
+<p style="margin:0 0 12px">Every cancelled entry: member, receipt number, struck-through amount, purpose, who collected it, the reason, which admin cancelled it and when, and the replacement receipt number for a correction. This is the association’s audit control.</p>
+
+<h2 style="font-family:'Instrument Serif',Georgia,serif;font-size:17pt;font-weight:400;margin:22px 0 10px;padding-bottom:6px;border-bottom:1px solid #DDD5C9">7 · Registration flows</h2>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">7.1 Shop first, then people</h3>
+<p style="margin:0 0 12px">The shop is the anchor, so it is created first and creates its licence holder in the same run.</p>
+<ol style="margin:0 0 12px;padding-left:22px">
+  <li>Shops → <strong>+ Register new shop</strong>: shop number (rejects duplicates), business name, wing, floor, run-by-owner or rented out, and the licence holder — either <em>add a new person</em> or <em>pick an existing member</em>. No fee toggle: a new shop simply carries the current year’s pending demand.</li>
+  <li><strong>Save shop &amp; continue.</strong> If an existing member was chosen, the shop is created with that person linked as owner and the shop opens. If a new person is to be added, the app goes straight to the member form with the shop pre-linked as Owner — “step 2 of 2”.</li>
+  <li>From the shop, the renter and workers are added afterwards (§7.3).</li>
+</ol>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">7.2 Adding a member</h3>
+<p style="margin:0 0 10px">Fields in order: name → member photo → role → linked shop (searchable, plus “+ Link another shop &amp; role” for multiple holdings) → phone → WhatsApp (same-as-phone toggle) → address → Aadhaar front and back with optional last four digits → consent tick → a footer showing who is capturing this and when.</p>
+<p style="margin:0 0 12px">Validation, in this order, with one plain message at a time: name, 10-digit phone, at least one shop with a role, photo, Aadhaar front, consent. A <strong>duplicate-phone warning</strong> appears live while typing. On save the member opens with an empty contribution history.</p>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">7.3 Search first — the duplicate guard</h3>
+<p style="margin:0 0 12px">“+ Add person to this shop” and “+ Add a member” both open a <strong>search sheet</strong>, never the blank form: type a name or number, see matching members with their existing shops and phone, and link one of them. Only if nothing matches does “Not on record — create new” open the form. At 2,300 people this is the difference between one profile per worker and two half-profiles with split contribution histories.</p>
+<p style="margin:0 0 12px">When linking from a shop, that shop is fixed (no shop list) and the role choices are <strong>Renter, Worker, Staff</strong> only. Linking from a member profile keeps the shop search and excludes shops already linked. A link is always additive — the person keeps every existing shop.</p>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">7.4 Transfer licence — admin only</h3>
+<p style="margin:0 0 12px">Sale, death or transfer to a son. Search and pick the new holder; the old owner link is removed, the new one created, and the shop records “Previously: <em>name</em> · licence held till <em>date</em>”. All past contributions stay with the old holder’s profile — they were his payments. The sheet states this before confirming.</p>
+
+<h2 style="font-family:'Instrument Serif',Georgia,serif;font-size:17pt;font-weight:400;margin:22px 0 10px;padding-bottom:6px;border-bottom:1px solid #DDD5C9">8 · Cash handover</h2>
+
+<p style="margin:0 0 12px">A receipt proves <em>who collected</em>, not <em>whether the money reached the treasurer</em>. A collector can take ₹40,000 across the day and hand over ₹35,000 with nothing out of place in the ledger. This flow closes that gap and, just as importantly, tells the treasurer what to expect from each person.</p>
+<ul style="margin:0 0 12px;padding-left:20px">
+  <li>Every contribution recorded with mode <strong>Cash</strong> increases that collector’s cash-in-hand. UPI, cheque and bank do not.</li>
+  <li><strong>Collector, in Account:</strong> “Cash with you ₹18,600 — collected in cash since your last handover” and <strong>Hand over to the treasurer</strong>. Confirming files a handover, zeroes their cash-in-hand and shows “waiting for the treasurer to confirm”.</li>
+  <li><strong>Admin, Account → Cash handovers:</strong> total cash sitting with collectors; <strong>expected from each collector</strong> by name; handovers <strong>waiting for confirmation</strong> with <em>Received in full</em> or <em>Short</em>; and the confirmed history with who confirmed each one.</li>
+  <li>Marking a handover <em>Short</em> flags it for reconciliation between that collector and the treasurer.</li>
+</ul>
+<p style="margin:0 0 12px"><em>To specify during development:</em> whether a Short handover needs the actual amount received and a note, and whether the difference stays open against the collector.</p>
+
+<h2 style="font-family:'Instrument Serif',Georgia,serif;font-size:17pt;font-weight:400;margin:22px 0 10px;padding-bottom:6px;border-bottom:1px solid #DDD5C9">9 · The annual fee cycle</h2>
+
+<p style="margin:0 0 12px">The fee is <strong>not fixed</strong> and does not depend on shop type — the general body meeting decides one amount for all shops each year. The app therefore treats the fee as a yearly cycle, admin-owned.</p>
+<ol style="margin:0 0 12px;padding-left:22px">
+  <li><strong>Set the amount</strong> — year label, amount, and a note recording which meeting decided it (“Set at the general body meeting, 12 Mar 2026”). Saving while a cycle is already open also updates every <em>unpaid</em> demand and reports how many were changed; paid shops are untouched.</li>
+  <li><strong>Raise the demand</strong> — marks the fee pending against every registered shop. Until this is done, no shop shows a due, the fee chips and Collect buttons are hidden, and the dashboard shows “No demand raised for <em>year</em>”.</li>
+  <li><strong>Collect</strong> — from the shop, from Home’s pending list, or from the member. Paying marks that shop paid with the amount and date actually paid.</li>
+  <li><strong>Close the year and start the next</strong> — each shop’s record is snapshotted individually (“Paid · ₹5,000” with its date, or “Never paid · year closed”, at the amount that shop really paid), every shop’s paid state is cleared, the year label advances, and the demand returns to unraised so a fresh amount can be set.</li>
+</ol>
+<p style="margin:0 0 12px">The whole app reads the live cycle: the shop fee card and its meeting note, the Home pending tile, the Reports pending list, the Account fee row, the receipt purpose line (“Association fee 2027–28”), the receipt series prefix, and the amount given to newly registered shops. Nothing about the year may be hardcoded anywhere.</p>
+
+<h2 style="font-family:'Instrument Serif',Georgia,serif;font-size:17pt;font-weight:400;margin:22px 0 10px;padding-bottom:6px;border-bottom:1px solid #DDD5C9">10 · Events</h2>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">10.1 Create</h3>
+<p style="margin:0 0 12px">Name, start date, optional end date, and the important choice: <strong>Own fund</strong> (donations are collected and held separately for this event) or <strong>Spend from general fund</strong> (no collection at all; every bill comes out of the general fund). The event opens Active and, if it has its own fund, immediately appears in the collection form’s event list.</p>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">10.2 Close</h3>
+<p style="margin:0 0 12px">Admin only. The sheet shows what is left and asks what to do with it: <strong>move to the general fund</strong> or <strong>keep in the event fund</strong>. On closing, the event is locked completely — no new spending and <strong>no late donations</strong>. A moved balance is added to the general fund and deducted from the event everywhere, so the association total never changes at the moment of closing. The event and its row then read “₹2,17,000 carried to general fund”.</p>
+
+<h2 style="font-family:'Instrument Serif',Georgia,serif;font-size:17pt;font-weight:400;margin:22px 0 10px;padding-bottom:6px;border-bottom:1px solid #DDD5C9">11 · Cancellation and correction</h2>
+
+<p style="margin:0 0 12px">Admin only — a collector cannot even flag an entry; they telephone the treasurer. The member already has a PDF on WhatsApp, so a receipt is never silently altered and a number is never reused.</p>
+<ul style="margin:0 0 12px;padding-left:20px">
+  <li><strong>Cancel</strong> — pick a reason (Wrong amount / Wrong member / Duplicate entry / Cash not received / Other), optionally notify the member on WhatsApp, confirm. The entry stays in the ledger struck through and marked CANCELLED, stops counting in every total, and the fund it credited is debited back. The matching row in the event’s income list is struck too.</li>
+  <li><strong>Correct</strong> — the same, plus a corrected amount: the old receipt is cancelled and a <strong>new receipt with the next number</strong> is issued, appearing in the member’s history marked “replaces DPB/…/0344”, with the fund adjusted to the new amount.</li>
+  <li>A reason is mandatory; the acting admin’s name and the date are recorded; everything lands in <strong>Cancelled receipts</strong>.</li>
+</ul>
+
+<h2 style="font-family:'Instrument Serif',Georgia,serif;font-size:17pt;font-weight:400;margin:22px 0 10px;padding-bottom:6px;border-bottom:1px solid #DDD5C9">12 · Deliberately out of scope for v1</h2>
+<table style="font-size:9.5pt;margin:0 0 14px">
+  <thead><tr style="background:#F1ECE4"><th style="text-align:left;padding:6px 9px;border:1px solid #DDD5C9;width:38%">Item</th><th style="text-align:left;padding:6px 9px;border:1px solid #DDD5C9">Decision</th></tr></thead>
+  <tbody>
+    <tr><td style="padding:6px 9px;border:1px solid #DDD5C9">Offline entry with later sync</td><td style="padding:6px 9px;border:1px solid #DDD5C9">Rejected. The phone must be online to record anything.</td></tr>
+    <tr style="background:#FBF9F6"><td style="padding:6px 9px;border:1px solid #DDD5C9">Reports — annual statement, CSV export</td><td style="padding:6px 9px;border:1px solid #DDD5C9">v2. The rows exist in Account and currently confirm with a message; the event and fund statements are built.</td></tr>
+    <tr><td style="padding:6px 9px;border:1px solid #DDD5C9">Editable receipt template</td><td style="padding:6px 9px;border:1px solid #DDD5C9">v2. The current receipt already carries everything needed.</td></tr>
+    <tr style="background:#FBF9F6"><td style="padding:6px 9px;border:1px solid #DDD5C9">Bulk “collect down A Wing” mode</td><td style="padding:6px 9px;border:1px solid #DDD5C9">Not needed. Every collection starts from a search.</td></tr>
+    <tr><td style="padding:6px 9px;border:1px solid #DDD5C9">One global search across shops, people and receipts</td><td style="padding:6px 9px;border:1px solid #DDD5C9">Not needed now; each list has its own search.</td></tr>
+    <tr style="background:#FBF9F6"><td style="padding:6px 9px;border:1px solid #DDD5C9">Members with no shop (office staff, watchman)</td><td style="padding:6px 9px;border:1px solid #DDD5C9"><strong>Open question.</strong> Currently impossible — every member needs a shop link.</td></tr>
+    <tr><td style="padding:6px 9px;border:1px solid #DDD5C9">Rent agreement dates, business category, shop photo</td><td style="padding:6px 9px;border:1px solid #DDD5C9">Not stored.</td></tr>
+    <tr style="background:#FBF9F6"><td style="padding:6px 9px;border:1px solid #DDD5C9">Spending categories, “approved by”</td><td style="padding:6px 9px;border:1px solid #DDD5C9">Removed — only the treasurer records spending.</td></tr>
+  </tbody>
+</table>
+
+<h2 style="font-family:'Instrument Serif',Georgia,serif;font-size:17pt;font-weight:400;margin:22px 0 10px;padding-bottom:6px;border-bottom:1px solid #DDD5C9">13 · Notes for the build</h2>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">13.1 Rules the server must own</h3>
+<ul style="margin:0 0 12px;padding-left:20px">
+  <li>Every permission in §2 is enforced at the API. The client hides buttons; the server refuses requests. Assume a modified client.</li>
+  <li>Receipt numbers are issued by the server, sequentially per financial year, with no gaps and no reuse — even under two collectors saving at the same moment.</li>
+  <li>Balances are computed from the ledger. Never keep a running total that can drift; if one is cached for speed, it must be rebuildable from the entries.</li>
+  <li>Ledger entries are append-only. A cancellation writes a cancellation record; it does not modify or delete the original row.</li>
+  <li>Uniqueness: shop number across the market; committee phone number; ideally a soft check on member phone numbers to surface duplicates.</li>
+  <li>Every write records who did it and when. Aadhaar views are logged as their own event.</li>
+</ul>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">13.2 Things that broke during prototyping — worth guarding in tests</h3>
+<ol style="margin:0 0 12px;padding-left:22px">
+  <li><strong>Double counting on event close.</strong> Moving a balance to the general fund must be deducted from the event in every place a balance is shown, or the association total inflates.</li>
+  <li><strong>One balance formula.</strong> Event page, events list and dashboard must use the same expression, or the three screens disagree by exactly the amount paid from the general fund.</li>
+  <li><strong>Cancelled entries in totals.</strong> Member total, list rows, fund balance, event collected, income list <em>and</em> the printed statement — a cancellation must reach all of them.</li>
+  <li><strong>Closed events accepting money.</strong> Filter closed and general-funded events out of the tagging list <em>and</em> re-check on save, in case the event was closed while a form was open.</li>
+  <li><strong>Fee year leaking.</strong> Every year label, amount, meeting note and receipt prefix must be read from the active cycle. Hardcoded years show up on a member’s receipt.</li>
+  <li><strong>Correction with no replacement.</strong> A correction must actually create the replacement entry; otherwise the promised receipt exists nowhere and money vanishes from the member’s total.</li>
+  <li><strong>Role changes mid-session.</strong> Recompute rights on each screen from the stored record, not from the login response.</li>
+  <li><strong>Reports as a back door.</strong> Gating a screen’s buttons is not enough — the statement screen itself must refuse a non-admin.</li>
+</ol>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">13.3 Device-level actions (client work, no design needed)</h3>
+<p style="margin:0 0 12px">Call opens the dialer with the member’s number; WhatsApp opens the chat with that number; Print downloads the receipt PDF; Retake and Aadhaar capture open the camera; Export PDF downloads the statement. Receipt delivery over WhatsApp needs a business number and a template — settle the provider early, since it affects the receipt flow’s timing.</p>
+
+<h3 style="font-size:12pt;margin:16px 0 8px">13.4 Scale and interface details</h3>
+<ul style="margin:0 0 12px;padding-left:20px">
+  <li>≈1,000 shops and ≈2,300 people: paginate lists and search on the server; never ship the full register to the phone.</li>
+  <li>Amounts always in Indian grouping; amounts in words on receipts follow lakh/crore.</li>
+  <li>Touch targets no smaller than 44px — collectors use this one-handed, standing in a crowded market.</li>
+  <li>Every failure needs a plain message and a way forward; assume patchy signal and, because there is no offline mode, never let a save appear to succeed when it did not.</li>
+  <li>Backup runs nightly on the server. The app shows only the last successful backup and a way to download a copy; a failure older than three days should be visible in Account.</li>
+</ul>
+
+<div style="border-top:1px solid #DDD5C9;margin-top:26px;padding-top:12px;font-family:'IBM Plex Mono',monospace;font-size:8.5pt;color:#8A8177">
+  Prepared from the design discussion for v1 · the interactive prototype “Market Association App” is the visual reference for every screen described here.
+</div>
+
+</div>
+
+</doc-page>
+
+</x-dc>
+</body>
+</html>

@@ -7,7 +7,7 @@
  * functional spec §7.2 asks for).
  */
 
-import { digitsOnly } from "./phone";
+import { normalisePhone } from "./phone";
 
 export const OTP_LENGTH = 6;
 export const PIN_LENGTH = 4;
@@ -17,7 +17,8 @@ export function validateName(value: string) {
 }
 
 export function validatePhone(value: string) {
-  const digits = digitsOnly(value);
+  // Normalised so a pasted "+91 …" passes, while an 11-digit typo still fails.
+  const digits = normalisePhone(value);
   if (!digits) return "Enter a mobile number.";
   if (digits.length !== 10) return "Enter a 10-digit mobile number.";
   return null;

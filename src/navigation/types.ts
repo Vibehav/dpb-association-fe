@@ -42,6 +42,4 @@ export type AppStackParamList = {
   /** Admin only. */
   Committee: undefined;
   AddCommitteeMember: undefined;
-  /** DEV only — registered and reachable solely under `__DEV__`. */
-  MediaCheck: undefined;
 };

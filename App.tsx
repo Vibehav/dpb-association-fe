@@ -1,10 +1,10 @@
-import { AuthProvider } from "./src/context/AuthContext";
+import { AppProviders } from "./src/app/providers";
 import { RootNavigator } from "./src/navigation/RootNavigator";
 
 export default function App() {
   return (
-    <AuthProvider>
+    <AppProviders>
       <RootNavigator />
-    </AuthProvider>
+    </AppProviders>
   );
 }

@@ -8,3 +8,5 @@ yarn-error.log*
 .env
 .thumbnail
 fe-mockup/
+# Added by code-review-graph
+.code-review-graph/

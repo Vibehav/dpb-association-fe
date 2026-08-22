@@ -1,0 +1,257 @@
+import type { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { errorMessage, type PersonShopLink } from "../../api";
+import { usePermissions } from "../../auth/usePermissions";
+import { ShopSearchSheet } from "../../components/search/ShopSearchSheet";
+import {
+  Avatar,
+  Banner,
+  Button,
+  Card,
+  Chip,
+  ConfirmSheet,
+  ErrorState,
+  LoadingScreen,
+  Screen
+} from "../../components/ui";
+import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
+import type { AppStackParamList } from "../../navigation/types";
+import { colors, spacing, typography } from "../../theme";
+import { callNumber, openWhatsApp } from "../../utils/deviceActions";
+import { formatDate, roleLabel } from "../../utils/format";
+import { formatPhone } from "../../utils/phone";
+import { useRemoveLink } from "../shops/hooks";
+import { AadhaarPanel } from "./components/AadhaarPanel";
+import { MemberPhoto } from "./components/MemberPhoto";
+import { useAddPersonLink, useDeletePerson, usePerson } from "./hooks";
+
+type Props = NativeStackScreenProps<AppStackParamList, "PersonProfile">;
+
+/**
+ * A member's profile (integration doc §5.8).
+ *
+ * Contribution history and "Record a contribution" from the design are v2 and omitted.
+ */
+export function PersonProfileScreen({ navigation, route }: Props) {
+  const { personId } = route.params;
+  const { canWrite, isAdmin } = usePermissions();
+
+  const person = usePerson(personId);
+  const addLink = useAddPersonLink(personId);
+  const removeLink = useRemoveLink();
+  const deletePerson = useDeletePerson();
+
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [unlinking, setUnlinking] = useState<PersonShopLink | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  useRefreshOnFocus(person.refetch);
+
+  if (person.isPending) return <LoadingScreen />;
+  if (person.error || !person.data) {
+    return (
+      <Screen>
+        <ErrorState error={person.error} title="Couldn't load the member" onRetry={person.refetch} />
+      </Screen>
+    );
+  }
+
+  const data = person.data;
+
+  async function run(action: () => Promise<unknown>, after?: () => void) {
+    setActionError(null);
+    try {
+      await action();
+      after?.();
+    } catch (caught) {
+      setActionError(errorMessage(caught));
+    }
+  }
+
+  return (
+    <Screen refreshing={person.isRefetching} onRefresh={person.refetch}>
+      <Card>
+        <View style={styles.headerRow}>
+          <Avatar name={data.name} size={44} />
+          <View style={styles.headerText}>
+            <Text style={typography.title}>{data.name}</Text>
+            {data.shops.length > 0 ? (
+              <Text style={typography.bodySmall}>
+                {data.shops.map((shop) => `${roleLabel(shop.role)} at ${shop.shopNumber}`).join(" · ")}
+              </Text>
+            ) : (
+              <Text style={typography.bodySmall}>No shop linked</Text>
+            )}
+          </View>
+        </View>
+        {canWrite ? (
+          <Button
+            label="Edit"
+            variant="secondary"
+            icon="create-outline"
+            onPress={() => navigation.navigate("PersonEdit", { personId })}
+          />
+        ) : null}
+      </Card>
+
+      <Card>
+        <Text style={typography.eyebrow}>Member photo</Text>
+        <MemberPhoto personId={personId} photoUrl={data.photoUrl} canRetake={canWrite} />
+      </Card>
+
+      <Card>
+        <Text style={typography.eyebrow}>Shops &amp; roles</Text>
+        {data.shops.map((link) => (
+          <View key={link.linkId} style={styles.linkRow}>
+            <Pressable
+              style={styles.linkMain}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${link.shopNumber}`}
+              onPress={() => navigation.navigate("ShopDetail", { shopId: link.shopId })}
+            >
+              <Text style={styles.number}>{link.shopNumber}</Text>
+              <Text style={typography.body}>{link.businessName}</Text>
+            </Pressable>
+            <Chip label={roleLabel(link.role)} />
+            {/* Owner links are replaced by a transfer, never removed. */}
+            {isAdmin && link.role !== "OWNER" ? (
+              <Pressable onPress={() => setUnlinking(link)} hitSlop={8} accessibilityRole="button">
+                <Text style={styles.remove}>Remove</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ))}
+        {canWrite ? (
+          <Button
+            label="Link another shop & role"
+            variant="secondary"
+            icon="add"
+            onPress={() => setLinkOpen(true)}
+          />
+        ) : null}
+      </Card>
+
+      <Card>
+        <Text style={typography.eyebrow}>Details</Text>
+        <Detail label="Phone" value={formatPhone(data.phone)} />
+        <Detail label="WhatsApp" value={formatPhone(data.whatsappPhone)} />
+        <Detail label="Address" value={data.address || "Not recorded"} />
+        <Text style={typography.bodySmall}>
+          Added on {formatDate(data.addedOn)}
+          {data.addedByName ? ` · by ${data.addedByName}` : ""}
+        </Text>
+        <View style={styles.contactRow}>
+          <View style={styles.contactAction}>
+            <Button
+              label="Call"
+              variant="secondary"
+              icon="call-outline"
+              onPress={() => callNumber(data.phone)}
+            />
+          </View>
+          <View style={styles.contactAction}>
+            <Button
+              label="WhatsApp"
+              variant="secondary"
+              icon="logo-whatsapp"
+              onPress={() => openWhatsApp(data.whatsappPhone)}
+            />
+          </View>
+        </View>
+      </Card>
+
+      <AadhaarPanel person={data} />
+
+      {actionError ? <Banner message={actionError} /> : null}
+
+      {isAdmin ? (
+        <Card>
+          <Text style={typography.eyebrow}>Admin</Text>
+          <Button
+            label="Delete member"
+            variant="danger"
+            icon="trash-outline"
+            onPress={() => setConfirmDelete(true)}
+          />
+        </Card>
+      ) : null}
+
+      <ShopSearchSheet
+        visible={linkOpen}
+        onClose={() => setLinkOpen(false)}
+        title="Link another shop"
+        hint="A link is additive — every existing shop stays."
+        excludeShopIds={data.shops.map((shop) => shop.shopId)}
+        onPick={(shop, role) => {
+          setLinkOpen(false);
+          run(() => addLink.mutateAsync({ shopId: shop.id, role }));
+        }}
+      />
+
+      <ConfirmSheet
+        visible={unlinking !== null}
+        onClose={() => setUnlinking(null)}
+        onConfirm={() =>
+          unlinking &&
+          run(() => removeLink.mutateAsync(unlinking.linkId), () => setUnlinking(null))
+        }
+        loading={removeLink.isPending}
+        destructive
+        title={`Remove from ${unlinking?.shopNumber ?? ""}?`}
+        message={`${data.name} stays on the register but is no longer linked to this shop.${
+          data.shops.length === 1 ? " This is their only shop, so they'll show as \"No shop linked\"." : ""
+        }`}
+        confirmLabel="Remove link"
+      />
+
+      <ConfirmSheet
+        visible={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() =>
+          run(
+            () => deletePerson.mutateAsync(personId),
+            () => {
+              setConfirmDelete(false);
+              navigation.goBack();
+            }
+          )
+        }
+        loading={deletePerson.isPending}
+        destructive
+        title={`Delete ${data.name}?`}
+        message="This hides the member and unlinks them from every shop. Their phone number becomes free for a new record. Prefer Edit if you're fixing a typo."
+        confirmLabel="Delete member"
+      />
+    </Screen>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.detail}>
+      <Text style={typography.bodySmall}>{label}</Text>
+      <Text style={typography.body}>{value}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  headerRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  headerText: { flex: 1, gap: 2 },
+  linkRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border
+  },
+  linkMain: { flex: 1, gap: 2 },
+  number: { ...typography.mono, fontSize: 14 },
+  remove: { ...typography.bodySmall, color: colors.error },
+  detail: { paddingVertical: spacing.xs },
+  contactRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm },
+  contactAction: { flex: 1 }
+});

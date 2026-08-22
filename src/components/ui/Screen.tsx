@@ -22,7 +22,24 @@ type Props = {
 };
 
 /** The standard screen frame: safe-area padding, paper background, gutters. */
-export function Screen({ children, scroll = true, refreshing, onRefresh, contentStyle, edges }: Props) {
+/**
+ * Never the top edge by default.
+ *
+ * Every screen using this sits under something that already handles the status-bar inset —
+ * a native-stack header, or `AppHeader` on the tabs. Applying the top inset again added a
+ * second ~30dp of padding, which showed up as a conspicuous gap between the header and the
+ * first card.
+ */
+const DEFAULT_EDGES: Edge[] = ["bottom", "left", "right"];
+
+export function Screen({
+  children,
+  scroll = true,
+  refreshing,
+  onRefresh,
+  contentStyle,
+  edges = DEFAULT_EDGES
+}: Props) {
   const inner = <View style={[styles.content, contentStyle]}>{children}</View>;
 
   return (

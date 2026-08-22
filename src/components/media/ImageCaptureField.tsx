@@ -30,7 +30,7 @@ export function ImageCaptureField({ label, capture, type, note, required }: Prop
     <View style={styles.wrapper}>
       <Text style={typography.eyebrow}>
         {label}
-        {required ? " ·  required" : ""}
+        {required ? " · required" : ""}
       </Text>
       {note ? <Text style={typography.bodySmall}>{note}</Text> : null}
 

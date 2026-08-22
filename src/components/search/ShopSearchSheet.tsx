@@ -6,6 +6,7 @@ import { queryKeys } from "../../app/queryKeys";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { colors, radii, spacing, typography } from "../../theme";
 import { roleLabel } from "../../utils/format";
+import { Banner } from "../ui/Banner";
 import { Button } from "../ui/Button";
 import { Chip, ChipRow } from "../ui/Chip";
 import { ErrorState } from "../ui/ErrorState";
@@ -20,6 +21,10 @@ type Props = {
   /** Shops already linked — hidden so a duplicate link can't be attempted. */
   excludeShopIds?: string[];
   onPick: (shop: ShopListItem, role: LinkableRole) => void;
+  /** Server-side failure, shown in place so the sheet can stay open on it. */
+  error?: string | null;
+  /** Disables the list while the link is being saved. */
+  busy?: boolean;
 };
 
 /**
@@ -29,7 +34,16 @@ type Props = {
  * or a licence transfer (integration doc §5.7). Used when linking a member to another shop,
  * and when building the mandatory first link on a standalone add.
  */
-export function ShopSearchSheet({ visible, onClose, title, hint, excludeShopIds, onPick }: Props) {
+export function ShopSearchSheet({
+  visible,
+  onClose,
+  title,
+  hint,
+  excludeShopIds,
+  onPick,
+  error,
+  busy
+}: Props) {
   const [term, setTerm] = useState("");
   const [role, setRole] = useState<LinkableRole>("STAFF");
   const debounced = useDebouncedValue(term.trim(), 350);
@@ -85,29 +99,43 @@ export function ShopSearchSheet({ visible, onClose, title, hint, excludeShopIds,
           </Text>
         ) : (
           <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled">
-            {matches.map((shop) => (
-              <Pressable
-                key={shop.id}
-                onPress={() => onPick(shop, role)}
-                accessibilityRole="button"
-                accessibilityLabel={`Link ${shop.shopNumber} as ${roleLabel(role)}`}
-                style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-              >
-                <Text style={styles.number}>{shop.shopNumber}</Text>
-                <View style={styles.rowText}>
-                  <Text style={typography.cardTitle}>{shop.businessName}</Text>
-                  <Text style={typography.bodySmall}>
-                    {shop.lane}
-                    {shop.rentedToName ? ` · rented to ${shop.rentedToName}` : ""}
-                  </Text>
-                </View>
-              </Pressable>
-            ))}
+            {matches.map((shop) => {
+              // ≤1 renter per shop. `rentedToName` is already on the list item, so say so
+              // up front rather than letting the user earn a 409 `renter_exists`.
+              const renterTaken = role === "RENTER" && Boolean(shop.rentedToName);
+              return (
+                <Pressable
+                  key={shop.id}
+                  disabled={renterTaken || busy}
+                  onPress={() => onPick(shop, role)}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: renterTaken }}
+                  accessibilityLabel={`Link ${shop.shopNumber} as ${roleLabel(role)}`}
+                  style={({ pressed }) => [
+                    styles.row,
+                    pressed && !renterTaken && styles.rowPressed,
+                    renterTaken && styles.rowDisabled
+                  ]}
+                >
+                  <Text style={styles.number}>{shop.shopNumber}</Text>
+                  <View style={styles.rowText}>
+                    <Text style={typography.cardTitle}>{shop.businessName}</Text>
+                    <Text style={typography.bodySmall}>
+                      {renterTaken
+                        ? `Already rented to ${shop.rentedToName} — add as staff instead`
+                        : shop.lane}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
           </ScrollView>
         )}
       </View>
 
-      <Button label="Cancel" variant="ghost" onPress={onClose} />
+      {error ? <Banner message={error} /> : null}
+
+      <Button label="Cancel" variant="ghost" onPress={onClose} disabled={busy} />
     </Sheet>
   );
 }
@@ -126,6 +154,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.md
   },
   rowPressed: { backgroundColor: colors.soft },
+  rowDisabled: { opacity: 0.45 },
   number: { ...typography.mono, fontSize: 14, minWidth: 62 },
   rowText: { flex: 1, gap: 2 }
 });

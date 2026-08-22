@@ -17,7 +17,7 @@ import {
 import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
 import type { AppStackParamList } from "../../navigation/types";
 import { colors, spacing, typography } from "../../theme";
-import { formatDate, roleLabel, titleCase } from "../../utils/format";
+import { formatDate, roleLabel, tenancyLabel } from "../../utils/format";
 import { formatPhone } from "../../utils/phone";
 import { useDeleteShop, useRemoveLink, useShop } from "./hooks";
 
@@ -78,13 +78,28 @@ export function ShopDetailScreen({ navigation, route }: Props) {
 
   return (
     <Screen refreshing={shop.isRefetching} onRefresh={shop.refetch}>
+      {/* Header layout follows the prototype's `isShop`: number, business name and lane
+          stacked on the left, Edit inline on the right. */}
       <Card>
         <View style={styles.headerRow}>
-          <Text style={styles.number}>{data.shopNumber}</Text>
-          <Chip label={titleCase(data.tenancy)} />
+          <View style={styles.headerText}>
+            <Text style={styles.number}>{data.shopNumber}</Text>
+            <Text style={typography.title}>{data.businessName}</Text>
+            <Text style={typography.body}>{data.lane}</Text>
+          </View>
+          {canWrite ? (
+            <Button
+              label="Edit"
+              variant="secondary"
+              icon="create-outline"
+              onPress={() => navigation.navigate("ShopForm", { shopId })}
+            />
+          ) : null}
         </View>
-        <Text style={typography.title}>{data.businessName}</Text>
-        <Text style={typography.body}>{data.lane}</Text>
+
+        <View style={styles.tenancyRow}>
+          <Chip label={tenancyLabel(data.tenancy)} />
+        </View>
 
         {/* Written by a transfer — the old holder keeps their own contribution history. */}
         {data.formerHolderName ? (
@@ -92,15 +107,6 @@ export function ShopDetailScreen({ navigation, route }: Props) {
             Previously: {data.formerHolderName}
             {data.formerHolderTill ? ` · licence held till ${formatDate(data.formerHolderTill)}` : ""}
           </Text>
-        ) : null}
-
-        {canWrite ? (
-          <Button
-            label="Edit"
-            variant="secondary"
-            icon="create-outline"
-            onPress={() => navigation.navigate("ShopForm", { shopId })}
-          />
         ) : null}
       </Card>
 
@@ -209,7 +215,9 @@ function PersonRow({
 }
 
 const styles = StyleSheet.create({
-  headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  headerRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.md },
+  headerText: { flex: 1, gap: 2 },
+  tenancyRow: { flexDirection: "row", marginTop: spacing.xs },
   number: { ...typography.mono, fontSize: 17 },
   personRow: {
     flexDirection: "row",

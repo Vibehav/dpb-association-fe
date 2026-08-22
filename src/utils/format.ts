@@ -31,6 +31,17 @@ export function roleLabel(role: string) {
 }
 
 /**
+ * Tenancy in the design's own words (prototype `rentedOptions`).
+ *
+ * Not `titleCase`, which turned `OWNER_RUN` into the slightly robotic "Owner Run".
+ */
+export function tenancyLabel(tenancy: string) {
+  if (tenancy === "OWNER_RUN") return "Run by owner";
+  if (tenancy === "RENTED_OUT") return "Rented out";
+  return titleCase(tenancy);
+}
+
+/**
  * ISO date or instant → "22 Aug 2026".
  *
  * `formerHolderTill` arrives as `YYYY-MM-DD`; `addedOn` as an ISO instant in UTC. Both

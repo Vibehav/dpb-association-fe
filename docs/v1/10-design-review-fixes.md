@@ -185,3 +185,91 @@ The API-level harnesses ([08](08-verification.md)) still pass — nothing change
 What has **not** been re-checked is the UI itself: the register-shop two-mode flow, the inline
 pickers, and Home no longer looping all need a device pass. The loop fix in particular is
 reasoned rather than observed.
+
+---
+
+## 8. Second round — from device screenshots and API logs
+
+### 8.1 A ~46dp gap under every stack header (**fixed**)
+
+`Screen` rendered `<SafeAreaView>` with no `edges`, which applies **all** insets including
+top. But every screen using it sits under something that has already handled the status bar —
+a native-stack header, or `AppHeader` on the tabs. The top inset was applied twice, showing as
+a conspicuous empty band between the header and the first card.
+
+`Screen` now defaults to `edges={["bottom", "left", "right"]}`. **Never add "top" back.**
+
+### 8.2 Deleting a member fired two `404 person_not_found` (**fixed**)
+
+Visible in the API log as a pair of "Member not found" 13ms apart on every delete.
+
+`usePersonInvalidation` invalidated `queryKeys.people.all` — and both the profile detail
+(`["people","detail",id]`) *and* any revealed Aadhaar URL
+(`["people","detail",id,"aadhaar",side]`) are keyed **beneath** it. So deleting a member
+immediately refetched two queries for a person who no longer existed, while the screen was
+still mounted.
+
+Fix: delete mutations invalidate `queryKeys.people.lists` / `shops.lists` — the lists only,
+never the details. New `lists` keys were added for exactly this. The stale detail entry is
+harmless; nothing can navigate back to a deleted record.
+
+Same bug and same fix for `useDeleteShop`.
+
+### 8.3 Four `renter_exists` in 27 seconds (**fixed, two ways**)
+
+The API log showed the same 409 refused four times in a row — someone retrying because
+nothing appeared to happen.
+
+Two causes, both in the profile's "Link another shop & role":
+
+1. **No pre-check.** `ShopSearchSheet` *displayed* `rentedToName` but still let you pick
+   RENTER for a shop that already had one. `ShopListItem` carries `rentedToName`, so the row
+   is now disabled with "Already rented to X — add as staff instead". The user cannot earn
+   that 409 any more.
+2. **The error was invisible.** The sheet closed on tap and the message rendered as a banner
+   *after the Details card* — far down a long scrolling profile. The sheet now **stays open
+   until the link succeeds** and shows its error in place.
+
+`ShopAddPersonScreen` was already guarded (it disables "Choose member" when the shop has a
+renter), which is why the same 409 wasn't reachable there.
+
+### 8.4 Smaller items
+
+- **"Owner Run" → "Run by owner".** `titleCase("OWNER_RUN")` produced robotic copy; new
+  `tenancyLabel()` uses the design's own words (`rentedOptions`).
+- **Shop detail header** now matches the prototype's `isShop`: number, business name and lane
+  stacked, **Edit inline on the right**. It was a full-width button below, with the tenancy
+  chip occupying the top-right slot Edit should have had.
+- **"MEMBER PHOTO ·  REQUIRED"** had a double space.
+
+### 8.5 Two API-side log lines, explained
+
+**`Resolved [ApiException: …]` at WARN is correct**, not an error. Spring's
+`ExceptionHandlerExceptionResolver` logs at WARN whenever an `@ExceptionHandler` handles
+something — it means the handler worked and a clean `{code, message}` response went out. Quiet
+it with:
+
+```yaml
+logging.level.org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver: ERROR
+```
+
+**`HV000271`** is a real Hibernate Validator deprecation on `CreatePersonRequest`, firing on
+every `POST /people`. API-side fix:
+
+```java
+// from: @Valid @NotEmpty List<PersonLinkInput> links
+// to:   @NotEmpty List<@Valid PersonLinkInput> links
+```
+
+### 8.6 Found while auditing endpoint coverage
+
+- **The Aadhaar audit trail was being polluted.** `useAadhaarUrl` used React Query's defaults,
+  so after four minutes with the panel open a focus event silently re-requested the URL — and
+  the server writes a `VIEW` row per request. The log would have shown views the admin never
+  asked for. Now `refetchOnMount`, `refetchOnWindowFocus` and `refetchOnReconnect` are all
+  false: fetched only when a deliberate tap flips `enabled`.
+- **No keyboard avoidance.** The member form is eight fields deep; on iOS the keyboard covered
+  the lower half. `Screen` now wraps its content in `KeyboardAvoidingView` (iOS padding;
+  Android resizes the window itself) with `keyboardDismissMode="on-drag"`.
+- **Dead `authApi.refresh`** removed — a second way to rotate tokens that bypassed
+  `client.ts`'s single-flight.

@@ -66,10 +66,17 @@ export function useUpdateShop(id: string) {
 }
 
 export function useDeleteShop() {
-  const invalidate = useShopInvalidation();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => shopsApi.remove(id),
-    onSuccess: (_result, id) => invalidate(id)
+    onSuccess: () => {
+      // `lists`, not `all` — the detail lives under `all`, and refetching a shop that has
+      // just been soft-deleted answers 404 while its screen is still mounted. The stale
+      // detail entry is harmless; nothing can navigate back to it.
+      queryClient.invalidateQueries({ queryKey: queryKeys.shops.lists });
+      // The people are still there, and their shop lists just got shorter.
+      queryClient.invalidateQueries({ queryKey: queryKeys.people.all });
+    }
   });
 }
 

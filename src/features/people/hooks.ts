@@ -71,10 +71,17 @@ export function useAddPersonLink(id: string) {
 }
 
 export function useDeletePerson() {
-  const invalidate = usePersonInvalidation();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => peopleApi.remove(id),
-    onSuccess: (_result, id) => invalidate(id)
+    onSuccess: () => {
+      // `lists`, not `all`. Invalidating `all` refetched the deleted person's *detail* and
+      // any revealed *Aadhaar* query — both keyed beneath it — producing a pair of
+      // `404 person_not_found` calls the instant a member was deleted.
+      queryClient.invalidateQueries({ queryKey: queryKeys.people.lists });
+      // Shops the person was linked to have lost a row.
+      queryClient.invalidateQueries({ queryKey: queryKeys.shops.all });
+    }
   });
 }
 

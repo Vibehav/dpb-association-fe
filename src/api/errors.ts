@@ -55,6 +55,16 @@ export const SERVER_ERROR_CODES = [
 
   // --- media ----------------------------------------------------------------
   "aadhaar_missing", // 404 · that side was never captured
+  /**
+   * 400 · a key was sent in the wrong field — a `photos/…` key as an Aadhaar key or vice
+   * versa. This is a **client bug**, not user error: it means a capture slot was wired to
+   * the wrong `MediaType`, or one key was reused across two fields. Reusing a key was a
+   * real security hole (a photo key pointing at an Aadhaar image exposed it to non-admins),
+   * so the API now refuses it.
+   */
+  "invalid_media_key",
+  /** 400 · the object isn't in storage — the presigned PUT never completed. */
+  "media_not_uploaded",
 
   // --- generic --------------------------------------------------------------
   "forbidden", // 403 · authenticated but the role isn't allowed
@@ -153,6 +163,10 @@ const OVERRIDE_MESSAGES: Partial<Record<ErrorCode, string>> = {
   otp_throttled: "Please wait a moment before requesting another code.",
   forbidden: "You don't have permission for this.",
   aadhaar_missing: "That side of the Aadhaar card hasn't been captured yet.",
+  // The user can't fix a mis-wired field, but retaking produces a fresh key in the right
+  // namespace, which does resolve it. `__DEV__` logging for this lives at the call site.
+  invalid_media_key: "That image couldn't be attached. Please retake it and save again.",
+  media_not_uploaded: "An image didn't finish uploading. Retake it and save again.",
   network_error: "Can't reach the server. Check your connection and try again.",
   timeout: "The request timed out. Please try again.",
   upload_failed: "The image didn't upload. Check your connection and try again."

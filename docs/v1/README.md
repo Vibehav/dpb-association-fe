@@ -22,6 +22,7 @@ the per-phase detail.
 | [08](08-verification.md) | Verification | How everything was proved, every result, and what is **not** covered. |
 | [09](09-api-defects.md) | API defects | Three findings in `dpb-association-api`, all resolved. |
 | [10](10-design-review-fixes.md) | Design review fixes | Prototype-vs-build pass: the Home reload loop, register-shop fields, the inline pickers, and two fields deliberately not built. |
+| [11](11-development-build.md) | Development & production builds | Leaving Expo Go: what must be fixed first, EAS vs local, and free-form Aadhaar cropping. |
 
 ## Status
 

@@ -36,7 +36,8 @@
           "photosPermission": "Allow Market Association to attach member photos, Aadhaar images and bill photos.",
           "cameraPermission": "Allow Market Association to capture member photos, Aadhaar images and bill photos."
         }
-      ]
+      ],
+      "expo-asset"
     ]
   }
 }

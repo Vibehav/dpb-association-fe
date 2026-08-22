@@ -15,7 +15,7 @@ API-side defects live in [09-api-defects.md](09-api-defects.md).
 
 ## Severity 1 — silent data corruption or security
 
-### B1 · A pasted `+91` number was stored corrupted `inherited` · **test: yes**
+### B1 · A pasted `+91` number was stored corrupted `inherited` · **test: partly**
 
 `PhoneField` did `digitsOnly(next).slice(0, 10)`.
 
@@ -32,7 +32,11 @@ exists to prevent, arriving through the back door. `maxLength={10}` made it wors
 the paste before the handler ever saw the prefix.
 
 **Fix:** `PhoneField` now calls `normalisePhone`, and `maxLength` is gone so the full paste
-reaches the handler. `src/utils/__tests__/phone.test.ts`.
+reaches the handler.
+
+`normalisePhone` is covered by `src/utils/__tests__/phone.test.ts`. **The component wiring is
+not** — nothing fails if someone swaps `normalisePhone` back for `digitsOnly` inside
+`PhoneField`. A render test on that field would close the gap.
 
 ### B2 · `normalisePhone` turned typos into different valid numbers `inherited` · **test: yes**
 
@@ -46,7 +50,7 @@ It took "the last 10 digits of anything longer than 10":
 Anything else keeps its length and fails validation, which is the only safe outcome for a
 unique identifying field.
 
-### B3 · Aadhaar audit trail was recording views nobody asked for `introduced` · **test: no**
+### B3 · Aadhaar audit trail was recording views nobody asked for `introduced` · **test: partly**
 
 `useAadhaarUrl` used React Query's defaults. With the panel open, once `staleTime` elapsed a
 focus event silently re-requested the signed URL — and the server writes a `VIEW` row to
@@ -56,7 +60,11 @@ performed, which defeats the entire point of logging them.
 **Fix:** `refetchOnMount`, `refetchOnWindowFocus` and `refetchOnReconnect` all false. The URL is
 fetched only when a deliberate tap flips `enabled`.
 
-### B4 · The Aadhaar panel attributed the image to the wrong person `introduced` · **test: no**
+`AadhaarPanel.test.tsx` asserts the endpoint isn't called on mount. **The focus-refetch half is
+not covered** — simulating a stale-then-refocus cycle needs more machinery than it's worth
+today, so the three `refetchOn*: false` flags are load-bearing and uninsured.
+
+### B4 · The Aadhaar panel attributed the image to the wrong person `introduced` · **test: yes**
 
 The panel rendered `Captured by {addedByName} · {addedOn}`. Those fields are the **member
 record's** `created_by`/`created_at`, not the image's — api slice 4 reuses them deliberately
@@ -68,6 +76,9 @@ said "Captured by Ishwar".
 
 **Fix:** label now reads "Member added by X · date" — truthful about what the field is. Real
 capture attribution needs an API change; see [12 §1](12-open-gaps.md).
+
+`AadhaarPanel.test.tsx` asserts the panel renders "Member added by …" and that no "Captured
+by" text exists anywhere in it.
 
 ### B5 · A dropped packet could have signed the user out `inherited` · **test: yes**
 
@@ -93,7 +104,7 @@ increment commits**. Every wrong PIN was therefore sent twice and counted twice,
 **Fix:** never refresh-retry a `/auth/*` path. Guarded by the most important test in the suite —
 mutation-tested by reintroducing the bug and confirming that test alone goes red.
 
-### B7 · The Home screen reloaded forever `introduced` · **test: no**
+### B7 · The Home screen reloaded forever `introduced` · **test: yes**
 
 `useRefreshOnFocus` listed its callback in the `useCallback` dependency array. `HomeScreen`
 passes an inline arrow (it refetches two queries), which is a new function every render:
@@ -108,7 +119,12 @@ which is why it survived earlier testing. **Found on a device by the user.**
 **Fix:** the hook holds the callback in a ref with **empty deps**. A caller must not have to
 memoise to use it safely.
 
-### B8 · Deleting a member fired two `404`s every time `introduced` · **test: no**
+`useRefreshOnFocus.test.tsx` mocks `useFocusEffect` to re-subscribe on callback-identity change
+— the real behaviour — then renders a component whose callback triggers a state update and
+asserts the render count stays bounded. It also checks the first focus is skipped, a later
+focus fires, and the ref doesn't go stale across a re-render.
+
+### B8 · Deleting a member fired two `404`s every time `introduced` · **test: yes**
 
 Visible in the API log as a pair of "Member not found" 13ms apart. Delete invalidated
 `queryKeys.people.all`, and both the profile detail and any revealed Aadhaar URL are keyed
@@ -125,6 +141,9 @@ Two requests for a person who no longer existed, while the screen was still moun
 
 **Fix:** new `lists` query keys. Delete mutations invalidate `people.lists` / `shops.lists`
 only, never the details. Same bug and fix for `useDeleteShop`.
+
+`deleteInvalidation.test.tsx` seeds a real cache with a list, a detail and an Aadhaar URL, runs
+the delete, and asserts the list is invalidated while the detail and Aadhaar are not.
 
 ### B9 · The register showed invented data when a request failed `inherited` · **test: no**
 
@@ -209,7 +228,35 @@ defined on Hermes — so instead of timing out, every timeout would have thrown 
 
 ---
 
-## Notes on the shape of this list
+
+## Regression coverage
+
+97 tests across 10 suites (`npm test`, ~2s). What each guards:
+
+| Suite | Guards |
+|---|---|
+| `api/__tests__/client.test.ts` | **B6** (mutation-tested), **B5**, **B11** |
+| `api/__tests__/errors.test.ts` | **B11** — all 31 codes, envelope parsing, Boot's body degrading |
+| `utils/__tests__/phone.test.ts` | **B2**, **B13**, and B1's underlying function |
+| `utils/__tests__/validators.test.ts` | every §8 rule |
+| `utils/__tests__/format.test.ts` | **B20**, plus the IST conversion |
+| `media/__tests__/validation.test.ts` | the failed-vs-missing image distinction |
+| `hooks/__tests__/useRefreshOnFocus.test.tsx` | **B7** |
+| `features/people/__tests__/deleteInvalidation.test.tsx` | **B8** |
+| `auth/__tests__/usePermissions.test.ts` | the gating flags every screen reads |
+| `features/people/__tests__/AadhaarPanel.test.tsx` | **B4**, half of **B3**, and the never-call-it-as-a-non-admin invariant |
+
+### Still unguarded — the remaining liability
+
+| # | Why it's uncovered |
+|---|---|
+| **B1** (component wiring) | `normalisePhone` is tested; nothing fails if `PhoneField` stops calling it. Needs a render test on the field. |
+| **B3** (focus refetch) | Mount is covered; the stale-then-refocus path isn't. The three `refetchOn*: false` flags are load-bearing and uninsured. |
+| **B17** (safe-area) | Layout. Needs a snapshot, which nobody has asked for. |
+| **B22** (keyboard) | Same — `KeyboardAvoidingView` presence isn't meaningfully assertable without a snapshot. |
+| **B9, B10, B12** | Architectural (no mock fallback, no persisted role, error placement). A test would assert the absence of something, which tends to rot. |
+
+### Notes on the shape of this list
 
 - **Ten of these were inherited**, and most were only findable by reading the API source
   alongside the client — B6 in particular needed `noRollbackFor` in `AuthService` to make sense.
@@ -217,6 +264,7 @@ defined on Hermes — so instead of timing out, every timeout would have thrown 
   No amount of static reasoning surfaced them; running the app did.
 - **Three were found by the test suite within minutes of it existing** (B1, B2, B13), all in the
   same file, all about phone numbers.
-- **The unguarded fixes are the liability.** B7, B8, B17 and B22 are all "structural" bugs a
-  future refactor could reintroduce, and none has a test. Component-level tests are the gap —
-  see [08 §7](08-verification.md#7-what-is-not-covered).
+- **Two tests are worth more than the rest combined**: the `/auth/*` replay guard in
+  `client.test.ts`, and the non-admin Aadhaar assertions. Both protect rules with real
+  consequences — a lockout at three tries, and an Aadhaar image reaching someone who may not
+  see it.

@@ -129,9 +129,18 @@ default.)
 
 ### `AddMemberScreen`
 
-Opens with `searchOpen = true`. Closing the search without picking navigates back — the form is
-only reachable through "Not on record — create new". Picking an existing person `replace`s to
-their profile rather than pushing, so back doesn't return to a half-filled form.
+**Opens straight on the form.** It was originally built with a blocking search-first sheet, as
+the prototype (`showPickSheet`) and spec §7.3 both specify — that was **removed as a product
+decision** after being used on a device. The sheet made every add start with a search the
+collector usually knows is unnecessary.
+
+The duplicate guard is not gone, just quieter: `MemberForm` queries
+`GET /people?query=<phone>` as the number is typed and warns inline before the collector
+spends time on a photo and an Aadhaar capture. `409 duplicate_phone` remains the backstop.
+
+To link someone already on record, open their profile → "Link another shop & role".
+`PersonSearchSheet` still fronts the **shop-side** flows (`ShopAddPersonScreen`,
+`ShopTransferScreen`), where finding an existing person is the point of the screen.
 
 The links builder is passed into `MemberForm` as `linksSection`, with `validateLinks` wired into
 the validation sequence. At least one link is mandatory and only RENTER/STAFF are offered —

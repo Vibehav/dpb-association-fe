@@ -23,7 +23,7 @@ const RESEND_COOLDOWN_SECONDS = 60;
  * The reset token this produces is held in navigation params and never written to disk.
  */
 export function OtpScreen({ navigation, route }: Props) {
-  const { phone, purpose, firstName } = route.params;
+  const { phone, purpose } = route.params;
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -59,13 +59,9 @@ export function OtpScreen({ navigation, route }: Props) {
     }
   }
 
-  const heading =
-    purpose === "FIRST_LOGIN"
-      ? `${firstName ? `${firstName}, s` : "S"}et up your M-PIN`
-      : "Reset your M-PIN";
 
   return (
-    <AuthShell eyebrow={heading}>
+    <AuthShell>
       <View style={styles.block}>
         <Text style={typography.bodySmall}>We sent a {OTP_LENGTH}-digit code to</Text>
         <Text style={styles.phone}>{formatPhone(phone)}</Text>

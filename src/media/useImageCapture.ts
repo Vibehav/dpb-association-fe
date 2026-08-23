@@ -9,8 +9,8 @@
 
 import * as ImagePicker from "expo-image-picker";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Platform } from "react-native";
 import { errorMessage, type MediaType } from "../api";
+import { cropFreeForm } from "./cropPicker";
 import { uploadImage, type CapturedImage } from "./upload";
 
 export type CaptureState =
@@ -80,6 +80,28 @@ export function useImageCapture(type: MediaType): ImageCapture {
       const previous = stateRef.current;
       set({ status: "choosing" });
 
+      // Aadhaar is a rectangular card, so it gets the free-form cropper. That library
+      // handles its own permissions and reports refusals as error codes, so this path
+      // skips the expo permission dance entirely.
+      if (type !== "PHOTO") {
+        try {
+          const cropped = await cropFreeForm(source);
+          if (!cropped) {
+            set(previous);
+            return;
+          }
+          assetRef.current = cropped;
+          await runUpload();
+        } catch (caught) {
+          set({
+            status: "failed",
+            previewUri: previous.status === "ready" ? previous.previewUri : null,
+            message: errorMessage(caught, "Couldn't open the camera.")
+          });
+        }
+        return;
+      }
+
       const permission =
         source === "camera"
           ? await ImagePicker.requestCameraPermissionsAsync()
@@ -97,7 +119,7 @@ export function useImageCapture(type: MediaType): ImageCapture {
         return;
       }
 
-      const options = pickerOptions(type);
+      const options = pickerOptions();
       const result =
         source === "camera"
           ? await ImagePicker.launchCameraAsync(options)
@@ -141,10 +163,11 @@ export function useImageCapture(type: MediaType): ImageCapture {
   };
 }
 
-/** ID-1 card, 85.6 × 54 mm — the shape of an Aadhaar card. */
-const CARD_ASPECT: [number, number] = [86, 54];
-
-function pickerOptions(type: MediaType): ImagePicker.ImagePickerOptions {
+/**
+ * Options for the **member photo** only. Aadhaar goes through `cropPicker.ts` instead,
+ * because `expo-image-picker` has no free-form crop on either platform.
+ */
+function pickerOptions(): ImagePicker.ImagePickerOptions {
   const shared: ImagePicker.ImagePickerOptions = {
     mediaTypes: ["images"],
     // Full quality out of the picker: `upload.ts` does the single lossy pass, so
@@ -156,18 +179,6 @@ function pickerOptions(type: MediaType): ImagePicker.ImagePickerOptions {
     exif: false
   };
 
-  // A face, shown in a circle. Square is also the only crop iOS offers, so this is
-  // consistent across platforms.
-  if (type === "PHOTO") return { ...shared, allowsEditing: true, aspect: [1, 1] };
-
-  // Aadhaar is a rectangular card, and `expo-image-picker` has **no free-form crop** on
-  // either platform — `aspect` only sets a fixed ratio.
-  //
-  // Android honours `aspect`, so the user gets a card-shaped frame to trim the desk out of.
-  // iOS *ignores* `aspect` and forces a square crop, which would cut the ends off the card —
-  // so there we skip the editor entirely and keep the full frame. Losing a crop step is a
-  // minor annoyance; losing the edge of someone's Aadhaar number is not.
-  return Platform.OS === "android"
-    ? { ...shared, allowsEditing: true, aspect: CARD_ASPECT }
-    : shared;
+  // A face, shown in a circle — square is right, and it's the only crop iOS offers anyway.
+  return { ...shared, allowsEditing: true, aspect: [1, 1] };
 }

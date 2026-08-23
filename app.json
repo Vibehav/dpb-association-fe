@@ -4,10 +4,10 @@
     "slug": "market-association-record-app",
     "version": "0.1.0",
     "orientation": "portrait",
-    "icon": "./uploads/logo-1784996881407.jpeg",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./uploads/logo-1784996881407.jpeg",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#FBF9F6"
     },
@@ -16,18 +16,24 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.marketassociation.records"
+      "bundleIdentifier": "com.marketassociation.records",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Capture member photos and Aadhaar images for the association's register.",
+        "NSPhotoLibraryUsageDescription": "Attach member photos and Aadhaar images from your library."
+      }
     },
     "android": {
       "package": "com.marketassociation.records",
       "adaptiveIcon": {
-        "foregroundImage": "./uploads/logo-1784996881407.jpeg",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FBF9F6"
       },
       "permissions": [
         "CAMERA",
         "READ_MEDIA_IMAGES"
-      ]
+      ],
+      "versionCode": 1
     },
     "plugins": [
       [

@@ -14,3 +14,8 @@ fe-mockup/
 # test + IDE output
 coverage/
 .idea/
+
+# Native projects are build output — regenerate with `npx expo prebuild --clean`.
+# Editing them by hand leaves the managed workflow and --clean will wipe your edits.
+android/
+ios/

@@ -162,9 +162,21 @@ removal keeps its history by design; purge them from the dev database if the ros
 
 Read this section before trusting the numbers above.
 
-### No automated tests at all
+### Automated tests — now partially done
 
-Nothing above runs in CI or survives a `git clone`. Phase 8's list, in priority order:
+**97 tests across 10 suites exist** (`npm test`, ~2s). See
+[13 § Regression coverage](13-bug-log.md) for the suite-to-bug map and the honest list of
+what is still unguarded.
+
+Covered: the HTTP client (including the `/auth/*` replay guard, mutation-tested), the error
+envelope, the validators, phone handling, IST date formatting, image-field validation,
+`useRefreshOnFocus`, delete invalidation, `usePermissions`, and the AadhaarPanel
+never-call-it-as-a-non-admin invariant.
+
+**Not covered:** component/layout tests. `PhoneField`'s wiring, the Aadhaar focus-refetch
+path, safe-area insets and keyboard avoidance all have fixes with no guard.
+
+The original priority list, for reference:
 
 | Target | Why it's first |
 |---|---|
@@ -178,12 +190,14 @@ Nothing above runs in CI or survives a `git clone`. Phase 8's list, in priority 
 Suggested tooling: `jest-expo` + `@testing-library/react-native` (listed in the plan's §1 but
 not installed).
 
-### No device pass as a non-admin
+### Device pass as a non-admin — partly done
+
+A **collector** pass was done on a device and looked correct. A **viewer** pass has not been
+done; `Vishal Again` (9700000001) is an active VIEWER with `pinSet: false`, ready for
+first-login.
 
 The harnesses prove the **server refuses** things. Only a phone proves the **buttons are
-hidden**. Nobody has yet signed in as a collector or a viewer on a device and checked that
-"Register new shop", "Add a member", Edit, Transfer, Delete and the Committee row are absent
-rather than present-and-403ing.
+hidden**.
 
 To do it: add a collector and a viewer from the Committee screen, read their first-login OTPs
 from the API console, set PINs, and walk every screen. That also exercises phase 7's add flow.

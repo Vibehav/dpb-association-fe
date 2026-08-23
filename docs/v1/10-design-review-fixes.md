@@ -273,3 +273,38 @@ every `POST /people`. API-side fix:
   Android resizes the window itself) with `keyboardDismissMode="on-drag"`.
 - **Dead `authApi.refresh`** removed — a second way to rotate tokens that bypassed
   `client.ts`'s single-flight.
+
+---
+
+## 9. Third round — the sign-in screen
+
+Compared against the prototype screenshot rather than the spec. The keypad was the reported
+complaint; most of it was other things.
+
+| | Design | Was |
+|---|---|---|
+| Title | the association's own name, two lines, 28pt serif | "Market Association Record" |
+| Subtitle | "Committee sign-in", **fixed on every step** | overridden per step ("Welcome back") |
+| Phone | `+91 98201 44120` — grouped 5+5 | unbroken ten digits |
+| Dots | solid fills, 14px/14px (PIN), 11px/11px (OTP) | bordered white circles → read as hollow rings, 12px both |
+| Keys | `padding: 16px 0`, radius 16, gap 10, 21pt mono | `minHeight: 52`, radius 15, gap 8, 20pt |
+| Layout | 3 × 1fr | `width: 30%` with flexWrap |
+
+**The keypad misalignment was the `30%` width.** Three keys are 90% of a row, so with
+`justifyContent: center` each row centred its own leftover 10% independently and the columns
+did not line up. Now explicit rows of three with `flex: 1`.
+
+**The title was the biggest miss** — the app's name where the design shows the association's.
+Now `ASSOCIATION_NAME` in `src/config.ts`, since Account and (in v2) every receipt and
+statement need it too.
+
+**Added, because the design has it:** the phone step greets live as the number is typed
+("Welcome back, X" in green — prototype `authGreeting`). That greeting is what confirms the
+right number was entered, so it belongs *before* Continue. The number is looked up debounced
+once ten digits are in, and Continue reuses the cached result. An unknown number stays silent
+while typing and only reports on Continue — flagging mid-entry would accuse someone still
+halfway through their own number. This let `firstName` and a dead `heading` be deleted from
+two route param lists.
+
+**Deliberately different:** the backspace is an Ionicons glyph, not the design's `⌫`
+character — clearer at a glance and what a native keypad uses.

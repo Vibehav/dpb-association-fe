@@ -3,9 +3,12 @@
 What has to happen before this app runs as a real binary, and what that unlocks (including
 free-form Aadhaar cropping).
 
-Nothing here is urgent *today* — everything built so far runs in Expo Go. But a release build
-is not optional, so the items in §3 have to be dealt with eventually, and some are easier to
-fix now than later.
+**STATUS: the development build is done.** `BUILD SUCCESSFUL in 2m20s`, APK installed on a
+Nothing Phone (`A063`), 1225 modules bundled. §3's pre-flight items were all completed except
+the cleartext-HTTP one, which only matters for a *release* build. The everyday loop is now
+`npm start` alone.
+
+What is **not** done: any iOS build, and any release/production build. §7's checklist stands.
 
 ---
 
@@ -221,7 +224,25 @@ Not needed yet (the committee is on Android), but for completeness: a developmen
 
 ---
 
-## 6. Free-form Aadhaar cropping
+## 6. Free-form Aadhaar cropping — **DONE**
+
+**Implemented via Option B.** `react-native-image-crop-picker@0.51.1` with
+`freeStyleCropEnabled`, wrapped by `src/media/cropPicker.ts`. Aadhaar capture routes there;
+the member photo keeps `expo-image-picker`'s 1:1 crop. `useImageCapture`'s public contract is
+unchanged, so `MemberForm`, `AadhaarPanel` and `upload.ts` were untouched.
+
+Checked before adopting it: not deprecated, ~218k weekly downloads, and it ships a `newarch`
+source set plus `codegenConfig` — which mattered, because this project has
+`newArchEnabled=true`. **The risk is staleness:** 0.51.1 is ~10 months old, so a future Expo
+SDK bump could outpace it. That is exactly why it sits behind one file.
+
+The wrapper absorbs three quirks: it throws on cancellation rather than returning a flag, it
+returns `path` (not `uri`) with an inconsistent `file://` scheme on Android, and permission
+refusals arrive as error codes rather than a permission response.
+
+The original analysis follows, because it explains why a second picker exists at all.
+
+## 6b. Original analysis
 
 **Today:** `expo-image-picker` gives a fixed 86:54 card-shaped crop on Android and no crop on
 iOS (iOS forces a square crop regardless of `aspect`, which would slice the ends off the card).

@@ -78,11 +78,14 @@ Step 2 is why `accessTokenExpiresAt` is stored at all.
 
 ## 3. Screens — `src/features/auth/`
 
-`AuthShell` gives every step the same frame: logo, association name, an eyebrow line.
+`AuthShell` gives every step the same frame: logo, the **association's own name**
+(`ASSOCIATION_NAME` in `src/config.ts`), and a **fixed** "Committee sign-in" subtitle. Steps
+used to override that subtitle, so the PIN screen read "Welcome back, Ishwar" where the design
+keeps it constant — see [10 §9](10-design-review-fixes.md).
 
 | Screen | Does | Routes on |
 |---|---|---|
-| `PhoneScreen` | `POST /auth/phone` | `onCommittee: false` → stop with a message · `pinSet: true` → Pin · `pinSet: false` → request a `FIRST_LOGIN` OTP, then Otp |
+| `PhoneScreen` | `POST /auth/phone`, **debounced as the number is typed** | `onCommittee: false` → silent while typing, message on Continue · `pinSet: true` → Pin · `pinSet: false` → request a `FIRST_LOGIN` OTP, then Otp |
 | `PinScreen` | `signIn()` | `pin_not_set` → request `FIRST_LOGIN` OTP, go to Otp · `not_on_committee` → back to Phone · `wrong_pin` / `pin_locked` → clear, show message, offer reset |
 | `OtpScreen` | `POST /auth/otp/verify` | success → NewPin with the reset token · any failure → clear and show the message |
 | `NewPinScreen` | `completePinSetup()` | `invalid_reset_token` → back to Otp with "that took too long" |
@@ -90,6 +93,11 @@ Step 2 is why `accessTokenExpiresAt` is stored at all.
 
 `PhoneScreen` requests the first-login OTP **before** navigating, so the user isn't staring at
 empty dots waiting for an SMS that hasn't been asked for.
+
+It also greets live: once ten digits are in, the lookup runs and shows "Welcome back, X" in
+green (prototype `authGreeting`). That greeting is what confirms the right number was typed,
+so it has to appear *before* Continue — which then reuses the cached result. `firstName` is
+therefore no longer threaded through the Pin and Otp route params.
 
 `OtpScreen` has a 60-second resend cooldown matching the server's `app.otp.resend-throttle`, so
 the button is disabled rather than letting the user earn a `429 otp_throttled`.

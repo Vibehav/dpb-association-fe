@@ -121,7 +121,8 @@ base64: false            // never pull multi-MB bytes into JS
 exif: false              // no GPS beside an Aadhaar scan
 // PHOTO only:
 allowsEditing: true, aspect: [1, 1]    // a face, shown as a circle
-// AADHAAR_*: no crop — the whole card must be captured
+// AADHAAR_* no longer reaches this function at all — it routes to
+// src/media/cropPicker.ts for a free-form crop. See 11 §6.
 ```
 
 ---

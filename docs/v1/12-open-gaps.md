@@ -65,13 +65,12 @@ image, so it is safe to show every role. Only the image itself is admin-only.
 
 ## 2. Not yet verified
 
-- **No automated tests exist.** All verification so far was throwaway harnesses against a live
-  API — see [08 §7](08-verification.md#7-what-is-not-covered) for the prioritised list.
+- **Component/layout tests missing.** 97 unit and hook tests exist; nothing renders a screen
+  except `AadhaarPanel`. See [13 § Still unguarded](13-bug-log.md).
 - **Viewer role never exercised on a device.** Collector has been (and looked correct);
   `Vishal Again` (9700000001) is an active VIEWER with `pinSet: false`, ready for first-login.
-- **iOS never run at all.** Every device session has been Android. The known iOS-specific
-  divergences are the Aadhaar crop (§ [11 §6](11-development-build.md)) and
-  `KeyboardAvoidingView` behaviour.
+- **iOS never run at all, and now less certain.** Every session has been Android, and the app
+  now depends on `react-native-image-crop-picker`, whose iOS path is untested here.
 
 ---
 
@@ -82,7 +81,7 @@ image, so it is safe to show every role. Only the image itself is admin-only.
 | **Floor** field on shops | No `floor` column in the v1 API; decision was to leave the API as-is |
 | **Wing/lane as chips** | `lane` is free text with no master list |
 | Fee chips, GIVEN TOTAL, Collect, receipts, events, fund | v2 — no API |
-| Free-form Aadhaar crop | Not possible in `expo-image-picker`; needs a dev build ([11 §6](11-development-build.md)) |
+| ~~Free-form Aadhaar crop~~ | **Done** — `react-native-image-crop-picker` behind `src/media/cropPicker.ts` |
 | `GET /committee/{id}` | Wrapped but unused — the list already carries every field |
 | `GET /people/{id}/photo` | Wrapped but unused — the profile serves `photoUrl` inline |
 

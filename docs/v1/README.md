@@ -1,5 +1,10 @@
 # V1 — React Native client, phase by phase
 
+> ### ▶ New here? Start with **[14-handoff.md](14-handoff.md)**.
+> It is the authority on the current state, what to do next, and what looks broken but isn't.
+> The numbered documents below are per-phase records — accurate about *why*, not always about
+> *now*.
+
 The build record for the v1 frontend. One document per phase, in the same shape as the API
 repo's `docs/v1/` slices: what was decided, what was built, how it was proved, and what bit us.
 
@@ -24,15 +29,16 @@ the per-phase detail.
 | [10](10-design-review-fixes.md) | Design review fixes | Prototype-vs-build pass: the Home reload loop, register-shop fields, the inline pickers, and two fields deliberately not built. |
 | [11](11-development-build.md) | Development & production builds | Leaving Expo Go: what must be fixed first, EAS vs local, and free-form Aadhaar cropping. |
 | [12](12-open-gaps.md) | Open gaps | Known omissions and unverified areas, incl. the missing Aadhaar capture attribution. |
+| [14](14-handoff.md) | **Handoff** | **Read first.** Current state, next steps, non-negotiable rules, and false alarms. |
 | [13](13-bug-log.md) | **Bug log** | Every bug found, its cause, its fix, and whether a test guards it. **Append here as new ones turn up.** |
 
 ## Status
 
-v1 is **feature-complete**: every screen in integration doc §5 is built and verified against a
-running API. What remains is [phase 8's automated tests](08-verification.md#what-is-not-covered)
-and a device pass as a non-admin.
+v1 is **feature-complete** and runs as a native Android development build on a real phone.
+97 tests across 10 suites. What remains: a **viewer** device pass, component/layout tests, and
+anything release-related. See [14-handoff.md](14-handoff.md) §1 and §4.
 
-All work sits on branch `feat/v1-foundation`, uncommitted.
+Branch `feat/v1-foundation`.
 
 ## Delivery order vs. plan order
 

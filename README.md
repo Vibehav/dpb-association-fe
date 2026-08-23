@@ -20,7 +20,8 @@ Three documents govern this repo, in order of authority for engineering question
 | Document | What it settles |
 | --- | --- |
 | `docs/frontend-integration.md` | The API contract and the v1/v2 scope line. Copied verbatim from the API repo. |
-| **`docs/v1/`** | **The build record, one file per phase** — what was decided, what was built, how it was proved, and what isn't covered. Start at `docs/v1/README.md`. |
+| **`docs/v1/14-handoff.md`** | **Start here.** Current state, next steps, and what looks broken but isn't. |
+| `docs/v1/` | The build record, one file per phase — what was decided, what was built, how it was proved, and what isn't covered. Start at `docs/v1/README.md`. |
 | `docs/v1-implementation-plan.md` | The plan: cross-cutting decisions, the phase breakdown, resolved questions, and the invariants not to regress. |
 | `docs/Market Association Record App/` | The functional spec and the interactive prototype — the visual reference. |
 
@@ -37,14 +38,14 @@ screen in integration doc §5 exists. Per-phase detail is in [`docs/v1/`](docs/v
 | Auth — phone → M-PIN → first-login OTP → forgot-PIN → set-PIN | Complete, with the §10 error routing |
 | Token storage, refresh rotation, app-lock, unlock | Complete |
 | HTTP client, typed errors, query cache, navigation, UI kit | Complete |
-| Media — compress → presigned PUT → key | Complete |
+| Media — compress → presigned PUT → key | Complete, with **free-form Aadhaar crop** |
 | Shops — list, detail, register (both owner branches), edit, links, transfer, delete | Complete |
 | People — list, profile, photo retake, links, edit, standalone add | Complete |
 | Aadhaar — admin-only viewing, collector re-capture | Complete, verified per role |
 | Account — identity, rights, Change M-PIN, lock, sign out | Complete |
 | Committee — list, add, role, reset PIN, remove, with guards | Complete |
-| **Automated tests** | **Phase 8 — not started.** All verification so far was by throwaway harnesses against a live API |
-| **Device pass as collector / viewer** | **Not done.** The server refuses correctly; nobody has confirmed the buttons are hidden on a phone |
+| Automated tests | **97 tests, 10 suites** (`npm test`). Component/layout coverage still missing |
+| Device pass | **Collector done** on a native build. **Viewer not done** |
 
 Before calling this shippable, read
 [`docs/v1/08-verification.md` §7](docs/v1/08-verification.md#7-what-is-not-covered) — it lists

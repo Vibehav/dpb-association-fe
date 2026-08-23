@@ -10,3 +10,7 @@ yarn-error.log*
 fe-mockup/
 # Added by code-review-graph
 .code-review-graph/
+
+# test + IDE output
+coverage/
+.idea/

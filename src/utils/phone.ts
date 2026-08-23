@@ -5,12 +5,23 @@ export function digitsOnly(value: string) {
 }
 
 /**
- * Normalise anything a user might type or paste into the 10 digits the API wants.
- * Handles a leading `+91`, `0091`, or a domestic `0`.
+ * Reduce anything a user might type or paste to the 10 digits the API wants.
+ *
+ * Only **recognised country/trunk prefixes** are stripped, and only at their exact expected
+ * length. An earlier version took "the last 10 digits of anything longer than 10", which
+ * quietly turned a typo into a different, entirely valid-looking number:
+ * `98200000001` (one digit too many) became `8200000001`. Now that input stays 11 digits
+ * long and fails validation, which is the only safe outcome for a field that is hard-unique
+ * and used to identify a person.
  */
 export function normalisePhone(value: string) {
   const digits = digitsOnly(value);
-  return digits.length > 10 ? digits.slice(-10) : digits;
+
+  if (digits.length === 14 && digits.startsWith("0091")) return digits.slice(4);
+  if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+  if (digits.length === 11 && digits.startsWith("0")) return digits.slice(1);
+
+  return digits;
 }
 
 export function isValidPhone(value: string) {
@@ -24,12 +35,17 @@ export function formatPhone(value: string | null | undefined) {
   return digits.length === 10 ? `+91 ${digits}` : value;
 }
 
-/** `tel:` target for the dialer. */
+/**
+ * `tel:` target for the dialer.
+ *
+ * Normalises first: prefixing a number that already carries its country code produced
+ * `tel:+91919820000000`.
+ */
 export function dialerUrl(value: string) {
-  return `tel:+91${digitsOnly(value)}`;
+  return `tel:+91${normalisePhone(value)}`;
 }
 
 /** `wa.me` target — WhatsApp wants the country code with no `+`. */
 export function whatsAppUrl(value: string) {
-  return `https://wa.me/91${digitsOnly(value)}`;
+  return `https://wa.me/91${normalisePhone(value)}`;
 }

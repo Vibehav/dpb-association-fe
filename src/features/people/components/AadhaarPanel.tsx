@@ -34,8 +34,20 @@ export function AadhaarPanel({ person }: { person: PersonProfile }) {
           ? `Ends in ${person.aadhaarLast4}`
           : "Last four digits not recorded."}
       </Text>
+      {/*
+       * This is the *member record's* added-by/added-on, not the current image's.
+       *
+       * `PersonProfileResponse` has no capture attribution — api slice 4 reuses
+       * created_by/created_at deliberately ("no separate capturer field"). So after a
+       * collector re-captures, these values still name whoever created the member. It used
+       * to read "Captured by Ishwar", which actively misattributed the image.
+       *
+       * Every re-capture *is* recorded server-side in `aadhaar_access_log` with actor, side
+       * and timestamp — but no endpoint exposes it, so it can't be shown here. Displaying
+       * "last captured by X" needs the API to surface it (see 12-open-gaps.md).
+       */}
       <Text style={typography.bodySmall}>
-        Captured by {person.addedByName ?? "unknown"} · {formatDate(person.addedOn)}
+        Member added by {person.addedByName ?? "unknown"} · {formatDate(person.addedOn)}
       </Text>
 
       {!isAdmin ? (

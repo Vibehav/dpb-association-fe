@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TextInput, View } from "react-native";
 import { colors, fontFamilies, MIN_TOUCH, radii, spacing, typography } from "../../theme";
-import { digitsOnly } from "../../utils/phone";
+import { normalisePhone } from "../../utils/phone";
 
 type Props = {
   value: string;
@@ -25,12 +25,14 @@ export function PhoneField({ value, onChangeText, label, error, hint, autoFocus,
         <Text style={styles.prefix}>+91</Text>
         <TextInput
           value={value}
-          onChangeText={(next) => onChangeText(digitsOnly(next).slice(0, 10))}
+          // Normalise, don't truncate: `digitsOnly(next).slice(0, 10)` turned a pasted
+          // "+91 9820000000" into "9198200000" — the country code plus the first eight
+          // digits of the real number.
+          onChangeText={(next) => onChangeText(normalisePhone(next).slice(0, 10))}
           keyboardType="number-pad"
           textContentType="telephoneNumber"
           placeholder="10-digit number"
           placeholderTextColor={colors.muted}
-          maxLength={10}
           autoFocus={autoFocus}
           editable={editable}
           style={styles.input}

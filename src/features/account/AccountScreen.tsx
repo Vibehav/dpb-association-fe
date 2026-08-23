@@ -79,17 +79,6 @@ export function AccountScreen() {
 
       <Button label="Lock app" variant="secondary" icon="lock-closed-outline" onPress={lock} />
       <Button label="Sign out" variant="secondary" icon="log-out-outline" onPress={signOut} />
-
-      {/* Phase 4 harness — dev builds only. Remove with src/features/dev once the
-          member form exercises the same pipeline. */}
-      {__DEV__ ? (
-        <Button
-          label="Media check (dev)"
-          variant="ghost"
-          icon="flask-outline"
-          onPress={() => navigation.navigate("MediaCheck")}
-        />
-      ) : null}
     </Screen>
   );
 }

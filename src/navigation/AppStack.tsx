@@ -3,7 +3,6 @@ import { AccountScreen } from "../features/account/AccountScreen";
 import { ChangePinScreen } from "../features/account/ChangePinScreen";
 import { AddCommitteeMemberScreen } from "../features/committee/AddCommitteeMemberScreen";
 import { CommitteeScreen } from "../features/committee/CommitteeScreen";
-import { MediaCheckScreen } from "../features/dev/MediaCheckScreen";
 import { AddMemberScreen } from "../features/people/AddMemberScreen";
 import { PersonEditScreen } from "../features/people/PersonEditScreen";
 import { PersonProfileScreen } from "../features/people/PersonProfileScreen";
@@ -75,11 +74,6 @@ export function AppStack() {
         component={AddCommitteeMemberScreen}
         options={{ presentation: "modal", title: "Add committee member" }}
       />
-
-      {/* Phase 4 harness. Never registered in a release build. */}
-      {__DEV__ ? (
-        <Stack.Screen name="MediaCheck" component={MediaCheckScreen} options={{ title: "Media check" }} />
-      ) : null}
     </Stack.Navigator>
   );
 }

@@ -49,7 +49,7 @@ export function NewPinScreen({ navigation, route }: Props) {
   }
 
   return (
-    <AuthShell eyebrow={purpose === "FIRST_LOGIN" ? "Set up your M-PIN" : "Choose a new M-PIN"}>
+    <AuthShell>
       <View style={styles.block}>
         <Text style={typography.eyebrow}>Set a new {PIN_LENGTH}-digit M-PIN</Text>
         <Text style={typography.bodySmall}>You&apos;ll use this every time you sign in.</Text>

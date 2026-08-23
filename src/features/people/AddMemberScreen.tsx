@@ -1,7 +1,6 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useState } from "react";
 import { errorMessage, type NewPersonPayload } from "../../api";
-import { PersonSearchSheet } from "../../components/search/PersonSearchSheet";
 import { Screen } from "../../components/ui";
 import type { AppStackParamList } from "../../navigation/types";
 import { validateLinks } from "../../utils/validators";
@@ -14,19 +13,23 @@ type Props = NativeStackScreenProps<AppStackParamList, "AddMember">;
 /**
  * Add a member from the People tab — `POST /people` (integration doc §5.8).
  *
- * Opens on the **pick sheet**, matching the prototype: `+ Add a member` calls `openPickAny`,
- * which shows "Search first — the person may already be on record at another shop", and only
- * "Not on record — create new" leads to this form. At ~2,300 people that guard is the
- * difference between one profile per worker and two half-profiles with a split history
- * (spec §7.3).
+ * **Opens straight on the form.** The prototype and spec §7.3 both put a blocking
+ * "search first" sheet in front of this, and it was built that way; it was removed as a
+ * product decision after being seen on a device.
  *
- * The form itself carries the role chips and the shop search **inline** (`ShopLinksField`),
- * as the design has them — not behind a second sheet.
+ * The duplicate guard is not gone, just quieter: `MemberForm` queries
+ * `GET /people?query=<phone>` as the number is typed and warns inline ("X already has this
+ * number") before the collector spends time on a photo and an Aadhaar capture. The server
+ * remains the backstop with `409 duplicate_phone`.
+ *
+ * To link a person who *is* already on record, open their profile and use
+ * "Link another shop & role" — the search-first sheet still fronts the shop-side flows
+ * (`ShopAddPersonScreen`, `ShopTransferScreen`), where finding an existing person is the
+ * whole point of the screen.
  */
 export function AddMemberScreen({ navigation }: Props) {
   const create = useCreatePerson();
 
-  const [searchOpen, setSearchOpen] = useState(true);
   const [links, setLinks] = useState<PickedLink[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +40,7 @@ export function AddMemberScreen({ navigation }: Props) {
         person,
         links: links.map((link) => ({ shopId: link.shopId, role: link.role }))
       });
+      // `replace`, so Back doesn't return to a spent form.
       navigation.replace("PersonProfile", { personId: created.id });
     } catch (caught) {
       setError(errorMessage(caught));
@@ -44,35 +48,16 @@ export function AddMemberScreen({ navigation }: Props) {
   }
 
   return (
-    <>
-      <Screen>
-        <MemberForm
-          submitLabel="Save member"
-          submitting={create.isPending}
-          error={error}
-          onSubmit={submit}
-          onBack={() => navigation.goBack()}
-          linksSection={<ShopLinksField links={links} onChange={setLinks} />}
-          validateLinks={() => validateLinks(links)}
-        />
-      </Screen>
-
-      <PersonSearchSheet
-        visible={searchOpen}
-        onClose={() => {
-          // Dismissing the search without choosing means leaving — the form is only reached
-          // through "Not on record — create new".
-          setSearchOpen(false);
-          navigation.goBack();
-        }}
-        title="Add a member"
-        onPickExisting={(person) => {
-          setSearchOpen(false);
-          // `replace`, so Back doesn't return to a half-filled form.
-          navigation.replace("PersonProfile", { personId: person.id });
-        }}
-        onCreateNew={() => setSearchOpen(false)}
+    <Screen>
+      <MemberForm
+        submitLabel="Save member"
+        submitting={create.isPending}
+        error={error}
+        onSubmit={submit}
+        onBack={() => navigation.goBack()}
+        linksSection={<ShopLinksField links={links} onChange={setLinks} />}
+        validateLinks={() => validateLinks(links)}
       />
-    </>
+    </Screen>
   );
 }

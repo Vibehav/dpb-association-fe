@@ -11,8 +11,8 @@ import type { OtpPurpose } from "../api";
 
 export type AuthStackParamList = {
   Phone: undefined;
-  Pin: { phone: string; firstName: string | null };
-  Otp: { phone: string; purpose: OtpPurpose; firstName: string | null };
+  Pin: { phone: string };
+  Otp: { phone: string; purpose: OtpPurpose };
   /** `resetToken` is passed in memory only — it is never persisted. */
   NewPin: { phone: string; resetToken: string; purpose: OtpPurpose };
 };

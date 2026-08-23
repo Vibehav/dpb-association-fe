@@ -36,7 +36,7 @@ export function UnlockScreen() {
   }
 
   return (
-    <AuthShell eyebrow="Welcome back">
+    <AuthShell>
       <View style={styles.block}>
         {phone ? <Text style={styles.phone}>{formatPhone(phone)}</Text> : null}
         <Text style={typography.eyebrow}>

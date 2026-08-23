@@ -80,8 +80,9 @@ been made, not only when there are zero results. Searching "Ramesh" and getting 
 who are all the wrong Ramesh is a real case, and the user has still been made to look first. The
 button is primary when there are no matches and secondary when there are.
 
-Four call sites: registration's owner picker, add-person-to-shop, transfer, and the standalone
-add-member screen.
+Call sites: add-person-to-shop and transfer. Registration's owner picker uses the *inline*
+`PersonPicker` instead, and the standalone add-member screen dropped its sheet entirely — see
+[06 § AddMemberScreen](06-people.md#addmemberscreen).
 
 ---
 

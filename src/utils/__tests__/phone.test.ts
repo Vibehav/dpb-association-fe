@@ -49,8 +49,8 @@ describe("isValidPhone", () => {
 });
 
 describe("formatPhone", () => {
-  it("renders the +91 form for display (§11)", () => {
-    expect(formatPhone("9820000000")).toBe("+91 9820000000");
+  it("renders the +91 form, grouped 5+5 as the design shows", () => {
+    expect(formatPhone("9820000000")).toBe("+91 98200 00000");
   });
 
   it("passes anything unexpected through untouched rather than mangling it", () => {

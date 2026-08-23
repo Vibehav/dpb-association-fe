@@ -28,11 +28,16 @@ export function isValidPhone(value: string) {
   return /^[0-9]{10}$/.test(digitsOnly(value));
 }
 
-/** "9820000000" → "+91 9820000000" (integration doc §11). */
+/**
+ * "9820000000" → "+91 98200 00000".
+ *
+ * Grouped 5+5, as the design renders it. Ten unbroken digits are hard to read back to
+ * someone over a market counter.
+ */
 export function formatPhone(value: string | null | undefined) {
   if (!value) return "";
   const digits = digitsOnly(value);
-  return digits.length === 10 ? `+91 ${digits}` : value;
+  return digits.length === 10 ? `+91 ${digits.slice(0, 5)} ${digits.slice(5)}` : value;
 }
 
 /**

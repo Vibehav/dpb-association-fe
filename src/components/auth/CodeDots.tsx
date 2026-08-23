@@ -1,5 +1,5 @@
 import { StyleSheet, View } from "react-native";
-import { colors, radii, spacing } from "../../theme";
+import { colors } from "../../theme";
 
 type Props = {
   /** How many digits have been entered. */
@@ -9,29 +9,39 @@ type Props = {
 };
 
 /**
- * The dot row from the design. Parameterised because the OTP screen needs six —
- * the old `PinDots` hardcoded four, which is why the OTP step fell back to a plain
- * text input and lost the designed keypad.
+ * The dot row from the design.
+ *
+ * Solid fills, **no border** — an earlier version drew bordered white circles, which read as
+ * hollow rings rather than the design's filled dots. Empty is the border colour, filled is
+ * the primary maroon.
+ *
+ * Sizes are the prototype's (`pinDots` / `otpDots` in the design source): 14px with a 14px
+ * gap for a 4-digit PIN, 11px with an 11px gap for a 6-digit OTP — the six-dot row is
+ * tighter so it doesn't outgrow the keypad above it.
  */
 export function CodeDots({ filled, total }: Props) {
+  const size = total > 4 ? 11 : 14;
+
   return (
-    <View style={styles.row} accessibilityLabel={`${filled} of ${total} digits entered`}>
+    <View
+      style={[styles.row, { gap: size }]}
+      accessibilityLabel={`${filled} of ${total} digits entered`}
+    >
       {Array.from({ length: total }, (_, index) => (
-        <View key={index} style={[styles.dot, index < filled && styles.dotFilled]} />
+        <View
+          key={index}
+          style={[
+            { width: size, height: size, borderRadius: size / 2 },
+            index < filled ? styles.filled : styles.empty
+          ]}
+        />
       ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", gap: spacing.md, justifyContent: "center" },
-  dot: {
-    width: 12,
-    height: 12,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card
-  },
-  dotFilled: { backgroundColor: colors.primary, borderColor: colors.primary }
+  row: { flexDirection: "row", justifyContent: "center", alignItems: "center" },
+  filled: { backgroundColor: colors.primary },
+  empty: { backgroundColor: colors.border }
 });

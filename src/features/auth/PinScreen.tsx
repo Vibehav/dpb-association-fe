@@ -23,7 +23,7 @@ type Props = NativeStackScreenProps<AuthStackParamList, "Pin">;
  * rather than showing a dead end.
  */
 export function PinScreen({ navigation, route }: Props) {
-  const { phone, firstName } = route.params;
+  const { phone } = route.params;
   const { signIn } = useAuth();
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +63,7 @@ export function PinScreen({ navigation, route }: Props) {
     setError(null);
     try {
       await authApi.requestOtp(phone, purpose);
-      navigation.navigate("Otp", { phone, purpose, firstName });
+      navigation.navigate("Otp", { phone, purpose });
     } catch (caught) {
       setError(errorMessage(caught, "Couldn't send a code."));
     } finally {
@@ -72,7 +72,7 @@ export function PinScreen({ navigation, route }: Props) {
   }
 
   return (
-    <AuthShell eyebrow={firstName ? `Welcome back, ${firstName}` : "Committee sign-in"}>
+    <AuthShell>
       <View style={styles.block}>
         <Text style={styles.phone}>{formatPhone(phone)}</Text>
         <Text style={typography.eyebrow}>Enter your 4-digit M-PIN</Text>

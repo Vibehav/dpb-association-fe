@@ -91,8 +91,11 @@ keeps it constant — see [10 §9](10-design-review-fixes.md).
 | `NewPinScreen` | `completePinSetup()` | `invalid_reset_token` → back to Otp with "that took too long" |
 | `UnlockScreen` | `unlock()` | `wrong_pin` shown, session-ended handled by context |
 
-`PhoneScreen` requests the first-login OTP **before** navigating, so the user isn't staring at
-empty dots waiting for an SMS that hasn't been asked for.
+`PhoneScreen` requests the first-login OTP **before** navigating.
+
+> ⚠️ **Removed / superseded wording:** “so the user isn't staring at empty dots waiting for an
+> SMS that hasn't been asked for.” OTPs are now delivered by email; the OTP screen shows the
+> masked email hint. See [15-email-otp.md](15-email-otp.md).
 
 It also greets live: once ten digits are in, the lookup runs and shows "Welcome back, X" in
 green (prototype `authGreeting`). That greeting is what confirms the right number was typed,

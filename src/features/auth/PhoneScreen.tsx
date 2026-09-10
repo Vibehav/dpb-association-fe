@@ -69,9 +69,13 @@ export function PhoneScreen({ navigation }: Props) {
       }
 
       // First login: no PIN yet. Request the code before showing the OTP screen, so the
-      // user isn't staring at empty dots waiting for an SMS nobody has asked for.
+      // user isn't staring at empty dots before the email has been sent.
       await authApi.requestOtp(normalised, "FIRST_LOGIN");
-      navigation.navigate("Otp", { phone: normalised, purpose: "FIRST_LOGIN" });
+      navigation.navigate("Otp", {
+        phone: normalised,
+        purpose: "FIRST_LOGIN",
+        emailHint: result.emailHint
+      });
     } catch (caught) {
       // A removed member's number reads as "not on the committee" — their row still exists
       // but is inactive, and the number is free to re-add (api slice 5).

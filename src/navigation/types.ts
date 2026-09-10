@@ -12,7 +12,7 @@ import type { OtpPurpose } from "../api";
 export type AuthStackParamList = {
   Phone: undefined;
   Pin: { phone: string };
-  Otp: { phone: string; purpose: OtpPurpose };
+  Otp: { phone: string; purpose: OtpPurpose; emailHint: string | null };
   /** `resetToken` is passed in memory only — it is never persisted. */
   NewPin: { phone: string; resetToken: string; purpose: OtpPurpose };
 };

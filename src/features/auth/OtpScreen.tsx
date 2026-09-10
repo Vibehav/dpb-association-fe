@@ -8,7 +8,6 @@ import { Banner } from "../../components/ui";
 import { useCountdown } from "../../hooks/useCountdown";
 import type { AuthStackParamList } from "../../navigation/types";
 import { colors, spacing, typography } from "../../theme";
-import { formatPhone } from "../../utils/phone";
 import { OTP_LENGTH } from "../../utils/validators";
 import { AuthShell } from "./AuthShell";
 
@@ -23,7 +22,7 @@ const RESEND_COOLDOWN_SECONDS = 60;
  * The reset token this produces is held in navigation params and never written to disk.
  */
 export function OtpScreen({ navigation, route }: Props) {
-  const { phone, purpose } = route.params;
+  const { phone, purpose, emailHint } = route.params;
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -63,8 +62,8 @@ export function OtpScreen({ navigation, route }: Props) {
   return (
     <AuthShell>
       <View style={styles.block}>
-        <Text style={typography.bodySmall}>We sent a {OTP_LENGTH}-digit code to</Text>
-        <Text style={styles.phone}>{formatPhone(phone)}</Text>
+        <Text style={typography.bodySmall}>We emailed a {OTP_LENGTH}-digit code to</Text>
+        <Text style={styles.email}>{emailHint ?? "your registered email address"}</Text>
       </View>
 
       <CodeDots filled={code.length} total={OTP_LENGTH} />
@@ -97,7 +96,7 @@ export function OtpScreen({ navigation, route }: Props) {
 
 const styles = StyleSheet.create({
   block: { alignItems: "center", gap: spacing.xs },
-  phone: { ...typography.mono, fontSize: 13 },
+  email: { ...typography.mono, fontSize: 13 },
   links: { flexDirection: "row", justifyContent: "center", gap: spacing.xl },
   muted: { ...typography.bodySmall, color: colors.muted },
   link: { ...typography.bodySmall, color: colors.primary }

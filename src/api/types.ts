@@ -60,6 +60,8 @@ export type PhoneCheckResponse = {
   firstName: string | null;
   /** Null when not on the committee; false means route into the first-login OTP flow. */
   pinSet: boolean | null;
+  /** Masked delivery address. Null for a number that is not on the committee. */
+  emailHint: string | null;
 };
 
 export type ResetTokenResponse = { resetToken: string };

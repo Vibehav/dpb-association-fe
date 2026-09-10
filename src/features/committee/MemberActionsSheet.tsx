@@ -1,47 +1,56 @@
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { errorMessage, type CommitteeMember, type Role } from "../../api";
-import { Banner, Button, Chip, ChipRow, Sheet } from "../../components/ui";
+import { errorMessage, isCode, type CommitteeMember, type Role } from "../../api";
+import { Banner, Button, Chip, ChipRow, Field, Sheet } from "../../components/ui";
 import { colors, spacing, typography } from "../../theme";
 import { titleCase } from "../../utils/format";
 import { formatPhone } from "../../utils/phone";
-import { useChangeRole, useRemoveCommitteeMember, useResetPin } from "./hooks";
+import { firstError, validateEmail, validateName } from "../../utils/validators";
+import { useRemoveCommitteeMember, useResetPin, useUpdateCommitteeMember } from "./hooks";
 
 const ROLES: Role[] = ["ADMIN", "COLLECTOR", "VIEWER"];
 
 type Props = {
   member: CommitteeMember | null;
+  isSelf: boolean;
   onClose: () => void;
 };
 
 /**
- * Change a member's role, reset their M-PIN, or remove them (functional spec §6.13).
+ * Correct a member's name/email, change their role, reset their M-PIN, or remove them.
  *
  * Confirmation happens *inside* this sheet rather than in a second one — nesting RN
  * `Modal`s is unreliable, and a two-state sheet reads better anyway.
  *
- * The two guards come back as 400 with a message worth showing verbatim: you cannot act on
- * yourself, and the association must always keep at least one active admin. The caller
- * hides this sheet for your own row, so `self_action` should be unreachable — but the
- * server is still the authority.
+ * A signed-in admin can edit their own name/email so a typo cannot lock them out of email
+ * OTPs. Their own role, PIN and membership still require another admin.
  */
-export function MemberActionsSheet({ member, onClose }: Props) {
-  const changeRole = useChangeRole();
+export function MemberActionsSheet({ member, isSelf, onClose }: Props) {
+  const update = useUpdateCommitteeMember();
   const resetPin = useResetPin();
   const remove = useRemoveCommitteeMember();
 
   const [confirming, setConfirming] = useState<"reset" | "remove" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [selectedRole, setSelectedRole] = useState<Role>("COLLECTOR");
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   // Reset the sheet's internal state whenever it targets someone new.
   useEffect(() => {
     setConfirming(null);
     setError(null);
-  }, [member?.id]);
+    setEmailError(null);
+    setName(member?.name ?? "");
+    setEmail(member?.email ?? "");
+    setSelectedRole(member?.role ?? "COLLECTOR");
+  }, [member?.id, member?.name, member?.email, member?.role]);
 
   if (!member) return null;
+  const target = member;
 
-  const busy = changeRole.isPending || resetPin.isPending || remove.isPending;
+  const busy = update.isPending || resetPin.isPending || remove.isPending;
 
   async function run(action: () => Promise<unknown>, close: boolean) {
     setError(null);
@@ -52,6 +61,35 @@ export function MemberActionsSheet({ member, onClose }: Props) {
     } catch (caught) {
       setConfirming(null);
       setError(errorMessage(caught));
+    }
+  }
+
+  async function saveDetails() {
+    const message = firstError(validateName(name), validateEmail(email));
+    setError(message);
+    setEmailError(null);
+    if (message) return;
+
+    const body = {
+      ...(name.trim() !== target.name ? { name: name.trim() } : {}),
+      ...(email.trim() !== target.email ? { email: email.trim() } : {}),
+      ...(!isSelf && selectedRole !== target.role ? { role: selectedRole } : {})
+    };
+    if (Object.keys(body).length === 0) {
+      onClose();
+      return;
+    }
+
+    setError(null);
+    try {
+      await update.mutateAsync({ id: target.id, body });
+      onClose();
+    } catch (caught) {
+      if (isCode(caught, "duplicate_email")) {
+        setEmailError("This email is already used by another active committee member.");
+      } else {
+        setError(errorMessage(caught));
+      }
     }
   }
 
@@ -98,23 +136,34 @@ export function MemberActionsSheet({ member, onClose }: Props) {
       <Text style={styles.mono}>{formatPhone(member.phone)}</Text>
 
       <View style={styles.block}>
+        <Text style={typography.eyebrow}>Member details</Text>
+        <Field label="Full name" value={name} onChangeText={setName} autoCapitalize="words" />
+        <Field
+          label="Email address"
+          value={email}
+          onChangeText={(next) => {
+            setEmail(next);
+            setEmailError(null);
+          }}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+          error={emailError}
+        />
+      </View>
+
+      <View style={styles.block}>
         <Text style={typography.eyebrow}>Role</Text>
         <ChipRow>
           {ROLES.map((role) => (
             <Chip
               key={role}
               label={titleCase(role)}
-              selected={member.role === role}
-              onPress={() =>
-                role !== member.role && run(() => changeRole.mutateAsync({ id: member.id, role }), false)
-              }
+              selected={selectedRole === role}
+              onPress={!isSelf ? () => setSelectedRole(role) : undefined}
             />
           ))}
         </ChipRow>
-        <Text style={typography.bodySmall}>{ROLE_SUMMARY[member.role]}</Text>
-        <Text style={typography.bodySmall}>
-          A role change applies immediately — on their next screen, without signing out.
-        </Text>
       </View>
 
       {!member.pinSet ? (
@@ -123,33 +172,39 @@ export function MemberActionsSheet({ member, onClose }: Props) {
 
       {error ? <Banner message={error} /> : null}
 
-      <Button
-        label="Reset their M-PIN"
-        variant="secondary"
-        icon="key-outline"
-        disabled={busy}
-        onPress={() => setConfirming("reset")}
-      />
-      <Button
-        label="Remove from committee"
-        variant="danger"
-        icon="person-remove-outline"
-        disabled={busy}
-        onPress={() => setConfirming("remove")}
-      />
-      <Button label="Close" variant="ghost" onPress={onClose} disabled={busy} />
+      {!isSelf ? (
+        <>
+          <Button
+            label="Reset their M-PIN"
+            variant="secondary"
+            icon="key-outline"
+            disabled={busy}
+            onPress={() => setConfirming("reset")}
+          />
+          <Button
+            label="Remove from committee"
+            variant="secondary"
+            icon="person-remove-outline"
+            disabled={busy}
+            onPress={() => setConfirming("remove")}
+          />
+        </>
+      ) : null}
+      <View style={styles.bottomActions}>
+        <View style={styles.bottomAction}>
+          <Button label="Save details" variant="primary" loading={update.isPending} onPress={saveDetails} />
+        </View>
+        <View style={styles.bottomAction}>
+          <Button label="Close" variant="secondary" onPress={onClose} disabled={busy} />
+        </View>
+      </View>
     </Sheet>
   );
 }
 
-/** One line per role, from the capability table in integration doc §3. */
-const ROLE_SUMMARY: Record<Role, string> = {
-  ADMIN: "Full register, Aadhaar images, licence transfers, deletions and the committee.",
-  COLLECTOR: "Registers and edits shops and members, and captures photos and Aadhaar copies.",
-  VIEWER: "Read-only. Cannot add or change anything, or open Aadhaar images."
-};
-
 const styles = StyleSheet.create({
   mono: { ...typography.mono, fontSize: 13, color: colors.muted },
-  block: { gap: spacing.xs }
+  block: { gap: spacing.xs },
+  bottomActions: { flexDirection: "row", gap: spacing.sm },
+  bottomAction: { flex: 1 }
 });

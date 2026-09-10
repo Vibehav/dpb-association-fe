@@ -246,6 +246,8 @@ export type CommitteeMember = {
   id: string;
   name: string;
   phone: string;
+  /** Used for first-login and M-PIN reset codes. */
+  email: string;
   role: Role;
   active: boolean;
   /** False for a freshly added member — they set their own PIN on first sign-in. */
@@ -260,4 +262,11 @@ export type AddCommitteeMemberRequest = {
   /** Required: first-login and M-PIN reset codes are delivered here. */
   email: string;
   role: Role;
+};
+
+/** At least one field must be supplied to `PATCH /committee/{id}`. */
+export type UpdateCommitteeMemberRequest = {
+  role?: Role;
+  email?: string;
+  name?: string;
 };

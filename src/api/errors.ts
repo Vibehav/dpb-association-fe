@@ -51,6 +51,7 @@ export const SERVER_ERROR_CODES = [
   // --- committee ------------------------------------------------------------
   "committee_not_found", // 404
   "duplicate_email", // 409 · address taken among active committee members
+  "nothing_to_update", // 400 · empty committee PATCH body
   "self_action", // 400 · cannot change or remove yourself
   "last_admin", // 400 · cannot remove/demote the last active admin
 

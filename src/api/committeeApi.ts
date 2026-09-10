@@ -1,5 +1,5 @@
 import { request } from "./client";
-import type { AddCommitteeMemberRequest, CommitteeMember, Role } from "./types";
+import type { AddCommitteeMemberRequest, CommitteeMember, UpdateCommitteeMemberRequest } from "./types";
 
 /**
  * Committee management. Every endpoint is admin only (403 otherwise).
@@ -27,9 +27,9 @@ export const committeeApi = {
     return request<CommitteeMember>("/committee", { method: "POST", body });
   },
 
-  /** Takes effect immediately: the API re-derives the role from the DB per request. */
-  changeRole(id: string, role: Role) {
-    return request<CommitteeMember>(`/committee/${id}`, { method: "PATCH", body: { role } });
+  /** Updates any combination of name, email and role. */
+  update(id: string, body: UpdateCommitteeMemberRequest) {
+    return request<CommitteeMember>(`/committee/${id}`, { method: "PATCH", body });
   },
 
   /** Clears the PIN and ends their sessions. They must set a new PIN to sign in again. */

@@ -8,7 +8,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { committeeApi, type AddCommitteeMemberRequest, type Role } from "../../api";
+import { committeeApi, type AddCommitteeMemberRequest, type UpdateCommitteeMemberRequest } from "../../api";
 import { queryKeys } from "../../app/queryKeys";
 
 export function useCommittee() {
@@ -36,11 +36,12 @@ export function useAddCommitteeMember() {
   });
 }
 
-/** 400 `self_action` if it's you, 400 `last_admin` if it would leave no active admin. */
-export function useChangeRole() {
+/** 400 `self_action` only blocks changing your own role; name and email remain editable. */
+export function useUpdateCommitteeMember() {
   const invalidate = useCommitteeInvalidation();
   return useMutation({
-    mutationFn: ({ id, role }: { id: string; role: Role }) => committeeApi.changeRole(id, role),
+    mutationFn: ({ id, body }: { id: string; body: UpdateCommitteeMemberRequest }) =>
+      committeeApi.update(id, body),
     onSuccess: invalidate
   });
 }

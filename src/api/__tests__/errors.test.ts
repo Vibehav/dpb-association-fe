@@ -24,7 +24,7 @@ describe("the code list", () => {
       "duplicate_shop_number", "shop_not_found", "no_owner", "already_owner",
       "owner_not_addable", "owner_not_removable", "renter_exists", "already_linked",
       "link_not_found", "duplicate_phone", "person_not_found", "person_input",
-      "consent_required", "committee_not_found", "self_action", "last_admin",
+      "consent_required", "committee_not_found", "duplicate_email", "self_action", "last_admin",
       "aadhaar_missing", "invalid_media_key", "media_not_uploaded",
       "forbidden", "validation_error"
     ];

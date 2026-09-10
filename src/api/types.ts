@@ -257,5 +257,7 @@ export type CommitteeMember = {
 export type AddCommitteeMemberRequest = {
   name: string;
   phone: string;
+  /** Required: first-login and M-PIN reset codes are delivered here. */
+  email: string;
   role: Role;
 };

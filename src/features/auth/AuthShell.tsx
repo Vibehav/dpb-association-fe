@@ -27,7 +27,7 @@ export function AuthShell({ children }: Props) {
             accessibilityIgnoresInvertColors
           />
           <Text style={styles.assocName}>{ASSOCIATION_NAME}</Text>
-          <Text style={typography.bodySmall}>Committee sign-in</Text>
+          <Text style={typography.bodySmall}>Committee Sign-In</Text>
         </View>
         <View style={styles.panel}>{children}</View>
       </ScrollView>

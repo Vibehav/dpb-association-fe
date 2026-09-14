@@ -137,7 +137,7 @@ export function MemberActionsSheet({ member, isSelf, onClose }: Props) {
 
       <View style={styles.block}>
         <Text style={typography.eyebrow}>Member details</Text>
-        <Field label="Full name" value={name} onChangeText={setName} autoCapitalize="words" />
+        <Field label="Full name" value={name} onChangeText={setName} autoCapitalize="characters" />
         <Field
           label="Email address"
           value={email}
@@ -160,7 +160,8 @@ export function MemberActionsSheet({ member, isSelf, onClose }: Props) {
               key={role}
               label={titleCase(role)}
               selected={selectedRole === role}
-              onPress={!isSelf ? () => setSelectedRole(role) : undefined}
+              onPress={() => setSelectedRole(role)}
+              disabled={isSelf}
             />
           ))}
         </ChipRow>
@@ -175,24 +176,24 @@ export function MemberActionsSheet({ member, isSelf, onClose }: Props) {
       {!isSelf ? (
         <>
           <Button
-            label="Reset their M-PIN"
-            variant="secondary"
-            icon="key-outline"
-            disabled={busy}
-            onPress={() => setConfirming("reset")}
-          />
-          <Button
             label="Remove from committee"
             variant="secondary"
             icon="person-remove-outline"
             disabled={busy}
             onPress={() => setConfirming("remove")}
           />
+          <Button
+            label="Reset M-PIN"
+            variant="secondary"
+            icon="key-outline"
+            disabled={busy}
+            onPress={() => setConfirming("reset")}
+          />
         </>
       ) : null}
       <View style={styles.bottomActions}>
         <View style={styles.bottomAction}>
-          <Button label="Save details" variant="primary" loading={update.isPending} onPress={saveDetails} />
+          <Button label="Save" variant="primary" loading={update.isPending} onPress={saveDetails} />
         </View>
         <View style={styles.bottomAction}>
           <Button label="Close" variant="secondary" onPress={onClose} disabled={busy} />

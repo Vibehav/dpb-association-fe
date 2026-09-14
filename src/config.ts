@@ -4,7 +4,7 @@
  */
 
 /** As it appears on the sign-in screen — wraps over two lines by design. */
-export const ASSOCIATION_NAME = "Dadar Phool Bazaar Vyapari Navnirman Mandal";
+export const ASSOCIATION_NAME = "Navnirman Mandal";
 
 /** The mono mark in the prototype's header. */
-export const ASSOCIATION_SHORT = "DPB · ASSOCIATION";
+export const ASSOCIATION_SHORT = "Navnirman Mandal";

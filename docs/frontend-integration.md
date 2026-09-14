@@ -157,6 +157,13 @@ from the initials top-right, not a tab). **Events** and **Fund** tabs are v2 —
 v1 has **no dashboard/metrics endpoint** and no money data. Keep Home light:
 - Show shop/people counts by reading `totalElements` from `GET /shops?size=1` and
   `GET /people?size=1`.
+- Cache those two count queries with `staleTime: Infinity`. Fetch them on Home's first load,
+  then reuse the cached values on subsequent Home mounts, navigation returns and ordinary
+  renders. Do not add a focus-based refetch for the count cards.
+- Pull-to-refresh (and Home's error retry) explicitly refetches **both** count queries.
+  Successful shop create/delete invalidates only the shop count; successful member create/delete
+  invalidates only the member count. Registering a shop with an inline new owner also invalidates
+  the member count, because that operation creates a member.
 - Provide quick entry points to Shops and People (and, for admins, Committee via Account).
 - **Do not** render fund balance, event cards, pending collections, or top contributors —
   those are v2.

@@ -31,10 +31,11 @@ export function Button({ label, onPress, variant = "primary", icon, loading, dis
         inert && styles.inert
       ]}
     >
+      {/* Condition ? Show : Don't Show [If there is an icon, show it. Otherwise show nothing.]  */}
       <View style={styles.row}>
         {loading ? <ActivityIndicator size="small" color={tint} /> : null}
-        {!loading && icon ? <Ionicons name={icon} size={18} color={tint} /> : null}
         <Text style={[typography.button, { color: tint }]}>{label}</Text>
+        {!loading && icon ? <Ionicons name={icon} size={18} color={tint} /> : null}
       </View>
     </Pressable>
   );

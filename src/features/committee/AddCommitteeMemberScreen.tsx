@@ -11,23 +11,37 @@ import { useAddCommitteeMember } from "./hooks";
 
 type Props = NativeStackScreenProps<AppStackParamList, "AddCommitteeMember">;
 
-const ROLES: { value: Role; label: string; description: string }[] = [
+const ROLES: { value: Role; label: string; description: string[] }[] = [
   {
     value: "COLLECTOR",
     label: "Collector",
-    description:
-      "Registers and edits shops and members, and captures photos and Aadhaar copies. Cannot open a stored Aadhaar image, transfer a licence, or delete anything."
+    description: [
+      "Registers and edits shops and members",
+      "Captures photos and Aadhaar copies",
+      "Cannot open a stored Aadhaar image",
+      "Cannot transfer a licence",
+      "Cannot delete anything"
+    ]
   },
   {
     value: "ADMIN",
     label: "Admin",
-    description:
-      "Everything a collector can, plus opening Aadhaar images, transferring licences, deleting records, and managing the committee."
+    description: [
+      "Can do everything in the register",
+      "Can open Aadhaar images",
+      "Can transfer licences",
+      "Can delete records",
+      "Can manage the committee"
+    ]
   },
   {
     value: "VIEWER",
     label: "Viewer",
-    description: "Reads the register only. Cannot add or change anything, or open Aadhaar images."
+    description: [
+      "Reads the register only",
+      "Cannot add or change anything",
+      "Cannot open Aadhaar images"
+    ]
   }
 ];
 
@@ -122,7 +136,15 @@ export function AddCommitteeMemberScreen({ navigation }: Props) {
             />
           ))}
         </ChipRow>
-        {selected ? <Text style={typography.body}>{selected.description}</Text> : null}
+        {selected ? (
+  <View style={styles.description}>
+    {selected.description.map((item) => (
+      <Text key={item} style={typography.body}>
+        • {item}
+      </Text>
+    ))}
+  </View>
+) : null}
       </Card>
 
       <View style={styles.note}>
@@ -146,5 +168,6 @@ export function AddCommitteeMemberScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  note: { marginTop: spacing.xs }
+  note: { marginTop: spacing.xs },
+  description: { marginTop: spacing.xs, gap: spacing.xs }
 });

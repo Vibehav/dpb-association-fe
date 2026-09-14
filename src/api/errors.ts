@@ -28,6 +28,8 @@ export const SERVER_ERROR_CODES = [
   "otp_expired", // 400 · code past its TTL
   "otp_attempts_exhausted", // 400 · too many wrong codes for this request
   "otp_throttled", // 429 · resend requested inside the 60s window
+  "otp_send_failed", // 502 · email provider could not deliver the code
+  "no_email_on_file", // 409 · committee member has no deliverable email address
 
   // --- shops ----------------------------------------------------------------
   "duplicate_shop_number", // 409 · taken among active shops (case-insensitive)
@@ -164,6 +166,8 @@ const OVERRIDE_MESSAGES: Partial<Record<ErrorCode, string>> = {
   owner_not_addable: "The licence holder is set through registration or transfer.",
   owner_not_removable: "The licence holder is changed through Transfer licence.",
   otp_throttled: "Please wait a moment before requesting another code.",
+  otp_send_failed: "Couldn't send the code, please try again.",
+  no_email_on_file: "No email address is registered for this number. Please contact the treasurer.",
   forbidden: "You don't have permission for this.",
   aadhaar_missing: "That side of the Aadhaar card hasn't been captured yet.",
   // The user can't fix a mis-wired field, but retaking produces a fresh key in the right

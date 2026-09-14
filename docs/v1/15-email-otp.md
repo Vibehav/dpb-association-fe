@@ -38,6 +38,5 @@ supersedes earlier references to SMS or a `DEV OTP` backend-console line.
 
 ## Implementation status
 
-The email fields, partial committee update, committee display and masked OTP destination are in
-place. `otp_send_failed`, `no_email_on_file`, and the spam-folder hint remain to be implemented
-in the client error/copy layer.
+The email fields, partial committee update, committee display, masked OTP destination, delivery
+error messages, and spam-folder hint are implemented in the client.

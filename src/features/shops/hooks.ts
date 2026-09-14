@@ -17,6 +17,7 @@ import {
   type UpdateShopRequest
 } from "../../api";
 import { queryKeys } from "../../app/queryKeys";
+import { COUNT_ONLY, peopleCountQueryHash, shopCountQueryHash } from "../../app/countQueries";
 
 export type ShopFilters = { query?: string; lane?: string };
 
@@ -41,19 +42,33 @@ export function useShop(id: string) {
 function useShopInvalidation() {
   const queryClient = useQueryClient();
   return (shopId?: string) => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.shops.all });
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.shops.all,
+      predicate: (query) => query.queryHash !== shopCountQueryHash
+    });
     // A link change alters a person's shop list, and registering an owner may have
     // created a person outright.
-    queryClient.invalidateQueries({ queryKey: queryKeys.people.all });
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.people.all,
+      predicate: (query) => query.queryHash !== peopleCountQueryHash
+    });
     if (shopId) queryClient.invalidateQueries({ queryKey: queryKeys.shops.detail(shopId) });
   };
 }
 
 export function useRegisterShop() {
   const invalidate = useShopInvalidation();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: RegisterShopRequest) => shopsApi.register(body),
-    onSuccess: (shop) => invalidate(shop.id)
+    onSuccess: (shop, body) => {
+      invalidate(shop.id);
+      queryClient.invalidateQueries({ queryKey: queryKeys.shops.list(COUNT_ONLY) });
+      // Registering with an inline owner creates a member too; refresh that total only then.
+      if ("newPerson" in body.owner) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.people.list(COUNT_ONLY) });
+      }
+    }
   });
 }
 
@@ -73,9 +88,16 @@ export function useDeleteShop() {
       // `lists`, not `all` — the detail lives under `all`, and refetching a shop that has
       // just been soft-deleted answers 404 while its screen is still mounted. The stale
       // detail entry is harmless; nothing can navigate back to it.
-      queryClient.invalidateQueries({ queryKey: queryKeys.shops.lists });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.shops.lists,
+        predicate: (query) => query.queryHash !== shopCountQueryHash
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.shops.list(COUNT_ONLY) });
       // The people are still there, and their shop lists just got shorter.
-      queryClient.invalidateQueries({ queryKey: queryKeys.people.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.people.all,
+        predicate: (query) => query.queryHash !== peopleCountQueryHash
+      });
     }
   });
 }

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { peopleApi, shopsApi } from "../../api";
+import { COUNT_ONLY } from "../../app/countQueries";
 import { queryKeys } from "../../app/queryKeys";
 
 /**
@@ -9,13 +10,13 @@ import { queryKeys } from "../../app/queryKeys";
  * one-row page — exactly what integration doc §5.1 prescribes. Nothing else goes on
  * Home: fund balances, event cards, pending collections and top contributors are all v2.
  */
-const COUNT_ONLY = { size: 1 } as const;
-
 export function useShopCount() {
   return useQuery({
     queryKey: queryKeys.shops.list(COUNT_ONLY),
     queryFn: () => shopsApi.list(COUNT_ONLY),
-    select: (page) => page.totalElements
+    select: (page) => page.totalElements,
+    // Totals change only after an explicit Home refresh or a relevant successful write.
+    staleTime: Infinity
   });
 }
 
@@ -23,6 +24,7 @@ export function usePeopleCount() {
   return useQuery({
     queryKey: queryKeys.people.list(COUNT_ONLY),
     queryFn: () => peopleApi.list(COUNT_ONLY),
-    select: (page) => page.totalElements
+    select: (page) => page.totalElements,
+    staleTime: Infinity
   });
 }

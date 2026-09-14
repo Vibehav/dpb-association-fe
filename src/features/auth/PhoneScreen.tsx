@@ -100,14 +100,14 @@ export function PhoneScreen({ navigation }: Props) {
         }}
         autoFocus
       />
+      <Button label="Continue" loading={busy} onPress={onContinue} />
       {greeting ? <Text style={styles.greeting}>{greeting}</Text> : null}
       {error ? <Banner message={error} /> : null}
-      <Button label="Continue" loading={busy} onPress={onContinue} />
     </AuthShell>
   );
 }
 
 const styles = StyleSheet.create({
-  // Green, as the design has it — a confirmation, not a warning.
+  // Green, as the design has it. Red, as the error has it.
   greeting: { ...typography.bodySmall, color: colors.success }
 });

@@ -16,6 +16,7 @@ import {
   type UpdatePersonRequest
 } from "../../api";
 import { queryKeys } from "../../app/queryKeys";
+import { COUNT_ONLY, peopleCountQueryHash, shopCountQueryHash } from "../../app/countQueries";
 
 export type PeopleFilters = { query?: string; role?: LinkRole };
 
@@ -38,9 +39,15 @@ export function usePerson(id: string) {
 function usePersonInvalidation() {
   const queryClient = useQueryClient();
   return (personId?: string) => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.people.all });
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.people.all,
+      predicate: (query) => query.queryHash !== peopleCountQueryHash
+    });
     // A link change alters the shop's people list too.
-    queryClient.invalidateQueries({ queryKey: queryKeys.shops.all });
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.shops.all,
+      predicate: (query) => query.queryHash !== shopCountQueryHash
+    });
     if (personId) queryClient.invalidateQueries({ queryKey: queryKeys.people.detail(personId) });
   };
 }
@@ -48,9 +55,13 @@ function usePersonInvalidation() {
 /** Standalone add. Needs at least one RENTER/STAFF link — OWNER here is a 400. */
 export function useCreatePerson() {
   const invalidate = usePersonInvalidation();
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: CreatePersonRequest) => peopleApi.create(body),
-    onSuccess: (person) => invalidate(person.id)
+    onSuccess: (person) => {
+      invalidate(person.id);
+      queryClient.invalidateQueries({ queryKey: queryKeys.people.list(COUNT_ONLY) });
+    }
   });
 }
 
@@ -78,9 +89,16 @@ export function useDeletePerson() {
       // `lists`, not `all`. Invalidating `all` refetched the deleted person's *detail* and
       // any revealed *Aadhaar* query — both keyed beneath it — producing a pair of
       // `404 person_not_found` calls the instant a member was deleted.
-      queryClient.invalidateQueries({ queryKey: queryKeys.people.lists });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.people.lists,
+        predicate: (query) => query.queryHash !== peopleCountQueryHash
+      });
+      queryClient.invalidateQueries({ queryKey: queryKeys.people.list(COUNT_ONLY) });
       // Shops the person was linked to have lost a row.
-      queryClient.invalidateQueries({ queryKey: queryKeys.shops.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.shops.all,
+        predicate: (query) => query.queryHash !== shopCountQueryHash
+      });
     }
   });
 }

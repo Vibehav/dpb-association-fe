@@ -3,7 +3,6 @@ import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { StyleSheet, Text, View } from "react-native";
 import { Card, ErrorState, Screen } from "../../components/ui";
-import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
 import type { MainTabsParamList } from "../../navigation/types";
 import { colors, spacing, typography } from "../../theme";
 import { usePeopleCount, useShopCount } from "./useCounts";
@@ -21,10 +20,9 @@ export function HomeScreen() {
   const shops = useShopCount();
   const people = usePeopleCount();
 
-  useRefreshOnFocus(() => {
-    shops.refetch();
-    people.refetch();
-  });
+  async function refetchCounts() {
+    await Promise.all([shops.refetch(), people.refetch()]);
+  }
 
   const error = shops.error ?? people.error;
   const refreshing = shops.isFetching || people.isFetching;
@@ -32,19 +30,13 @@ export function HomeScreen() {
   return (
     <Screen
       refreshing={refreshing}
-      onRefresh={() => {
-        shops.refetch();
-        people.refetch();
-      }}
+      onRefresh={refetchCounts}
     >
       {error ? (
         <ErrorState
           error={error}
           title="Couldn't load the register"
-          onRetry={() => {
-            shops.refetch();
-            people.refetch();
-          }}
+          onRetry={refetchCounts}
         />
       ) : (
         <>

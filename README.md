@@ -82,8 +82,10 @@ App.tsx → AppProviders (fonts · safe area · query cache · auth) → RootNav
 - **`src/auth/`** — `AuthContext` owns **tokens and the app-lock only**. The user's name and role
   come from `GET /me` via `useMe()`, refetched on every screen focus, because the API re-derives
   the role from the database per request and a mid-session demotion has to land immediately.
-- **`src/app/`** — the query client (`staleTime: 0`, no retry on 4xx, no retry on mutations) and
-  every query key in one place so invalidation is a lookup, not a guess.
+- **`src/app/`** — the query client (`staleTime: 0` by default, no retry on 4xx, no retry on
+  mutations) and every query key in one place so invalidation is a lookup, not a guess. Home's
+  shop/member totals are the deliberate exception: they use `staleTime: Infinity` and refresh
+  only on pull-to-refresh or the relevant successful create/delete mutation.
 - **`src/features/<area>/`** — screens and hooks per feature area.
 - **`src/components/ui/`** — the shared primitives. 44px minimum touch targets throughout.
 - **`src/theme/`** — the prototype's palette, plus Instrument Serif and IBM Plex Mono.

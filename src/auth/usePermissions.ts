@@ -16,12 +16,12 @@ export type Permissions = {
   loading: boolean;
   /** Read shops and people. Every role can. */
   canRead: boolean;
-  /** Register/edit shops and people, add renter/staff links, capture photo and Aadhaar. */
+  /** Register/edit shops and people, add renter/staff links, capture photo and ID proof. */
   canWrite: boolean;
   /** Transfer a licence, remove a link, soft-delete a shop or person. */
   isAdmin: boolean;
-  /** Open a stored Aadhaar image. Admin only, and every view is logged server-side. */
-  canViewAadhaar: boolean;
+  /** Open a stored ID-proof image. Admin only, and every view is logged server-side. */
+  canViewIdProof: boolean;
   /** Add, re-role, reset-PIN and remove committee members. */
   canManageCommittee: boolean;
 };
@@ -38,7 +38,7 @@ export function usePermissions(): Permissions {
     canRead: role !== null,
     canWrite,
     isAdmin,
-    canViewAadhaar: isAdmin,
+    canViewIdProof: isAdmin,
     canManageCommittee: isAdmin
   };
 }

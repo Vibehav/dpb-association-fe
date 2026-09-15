@@ -41,7 +41,8 @@ const person: PersonProfile = {
   phone: "9892710532",
   whatsappPhone: "9892710532",
   address: "Lane 2",
-  aadhaarLast4: "1234",
+  idProofType: "AADHAAR",
+  idProofLast4: "1234",
   consent: true,
   addedByName: "Ishwar",
   addedOn: "2026-08-22T10:00:00Z",
@@ -58,18 +59,18 @@ function asRole(role: "ADMIN" | "COLLECTOR" | "VIEWER") {
     canRead: true,
     canWrite,
     isAdmin,
-    canViewAadhaar: isAdmin,
+    canViewIdProof: isAdmin,
     canManageCommittee: isAdmin
   });
 }
 
 let client: QueryClient;
-let aadhaarUrl: jest.SpyInstance;
+let idProofUrl: jest.SpyInstance;
 
 beforeEach(() => {
   client = testQueryClient();
-  aadhaarUrl = jest
-    .spyOn(peopleApi, "aadhaarUrl")
+  idProofUrl = jest
+    .spyOn(peopleApi, "idProofUrl")
     .mockResolvedValue({ url: "https://storage/signed", expiresInSeconds: 300 });
 });
 
@@ -89,14 +90,14 @@ describe("AadhaarPanel — collector", () => {
 
     expect(queryByText("View front")).toBeNull();
     expect(queryByText("View back")).toBeNull();
-    expect(aadhaarUrl).not.toHaveBeenCalled();
+    expect(idProofUrl).not.toHaveBeenCalled();
   });
 
   it("can still re-capture — capture is allowed, viewing never is", async () => {
     const { getAllByText } = await renderPanel();
     // One per side.
     expect(getAllByText("Re-capture")).toHaveLength(2);
-    expect(aadhaarUrl).not.toHaveBeenCalled();
+    expect(idProofUrl).not.toHaveBeenCalled();
   });
 
   it("says plainly that the image is admin-only", async () => {
@@ -113,7 +114,7 @@ describe("AadhaarPanel — viewer", () => {
 
     expect(queryByText("View front")).toBeNull();
     expect(queryByText("Re-capture")).toBeNull();
-    expect(aadhaarUrl).not.toHaveBeenCalled();
+    expect(idProofUrl).not.toHaveBeenCalled();
   });
 });
 
@@ -123,7 +124,7 @@ describe("AadhaarPanel — admin", () => {
   it("does not fetch the image until it is explicitly asked for", async () => {
     await renderPanel();
     // No prefetch on mount — an audit row must mean a deliberate act.
-    expect(aadhaarUrl).not.toHaveBeenCalled();
+    expect(idProofUrl).not.toHaveBeenCalled();
   });
 
   it("fetches exactly one side when that side's View is pressed", async () => {
@@ -131,8 +132,8 @@ describe("AadhaarPanel — admin", () => {
 
     fireEvent.press(getByText("View front"));
 
-    await waitFor(() => expect(aadhaarUrl).toHaveBeenCalledTimes(1));
-    expect(aadhaarUrl).toHaveBeenCalledWith("p1", "FRONT");
+    await waitFor(() => expect(idProofUrl).toHaveBeenCalledTimes(1));
+    expect(idProofUrl).toHaveBeenCalledWith("p1", "FRONT");
   });
 });
 

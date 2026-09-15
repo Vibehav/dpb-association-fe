@@ -1,5 +1,5 @@
 /**
- * One capture slot — member photo, Aadhaar front, or Aadhaar back.
+ * One capture slot — member photo, ID-proof front, or ID-proof back.
  *
  * Owns the whole lifecycle: permission → camera or library → compress → upload → key.
  * The important property is that a failed upload is *visible and retryable* and never
@@ -80,9 +80,10 @@ export function useImageCapture(type: MediaType): ImageCapture {
       const previous = stateRef.current;
       set({ status: "choosing" });
 
-      // Aadhaar is a rectangular card, so it gets the free-form cropper. That library
-      // handles its own permissions and reports refusals as error codes, so this path
-      // skips the expo permission dance entirely.
+      // An ID proof is a document of unpredictable shape — a card, a folded licence, a
+      // passport page — so it gets the free-form cropper. That library handles its own
+      // permissions and reports refusals as error codes, so this path skips the expo
+      // permission dance entirely.
       if (type !== "PHOTO") {
         try {
           const cropped = await cropFreeForm(source);
@@ -164,7 +165,7 @@ export function useImageCapture(type: MediaType): ImageCapture {
 }
 
 /**
- * Options for the **member photo** only. Aadhaar goes through `cropPicker.ts` instead,
+ * Options for the **member photo** only. ID proofs go through `cropPicker.ts` instead,
  * because `expo-image-picker` has no free-form crop on either platform.
  */
 function pickerOptions(): ImagePicker.ImagePickerOptions {
@@ -175,7 +176,7 @@ function pickerOptions(): ImagePicker.ImagePickerOptions {
     quality: 1,
     // Never pull the bytes into JS — these are multi-megabyte images.
     base64: false,
-    // Don't carry GPS coordinates around next to a scan of someone's Aadhaar card.
+    // Don't carry GPS coordinates around next to a scan of someone's ID proof.
     exif: false
   };
 

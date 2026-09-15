@@ -1,7 +1,7 @@
 /**
  * Guards bug B8 — deleting a record refetched it and earned a 404.
  *
- * `people.detail(id)` and `people.aadhaar(id, side)` are keyed *beneath* `people.all`, so
+ * `people.detail(id)` and `people.idProof(id, side)` are keyed *beneath* `people.all`, so
  * invalidating `all` after a delete refetched two queries for a person who no longer existed,
  * while their screen was still mounted. It showed up as a pair of `404 person_not_found` in
  * the API log on every delete.
@@ -31,13 +31,13 @@ const invalidated = (client: ReturnType<typeof testQueryClient>, key: readonly u
   client.getQueryState([...key])?.isInvalidated;
 
 describe("useDeletePerson", () => {
-  it("invalidates the lists but NOT the deleted person's detail or Aadhaar", async () => {
+  it("invalidates the lists but NOT the deleted person's detail or ID proof", async () => {
     jest.spyOn(peopleApi, "remove").mockResolvedValue(undefined);
     client = testQueryClient();
 
     client.setQueryData(queryKeys.people.list({}), emptyPage);
     client.setQueryData(queryKeys.people.detail("p1"), { id: "p1", name: "Gone" });
-    client.setQueryData(queryKeys.people.aadhaar("p1", "FRONT"), { url: "…", expiresInSeconds: 300 });
+    client.setQueryData(queryKeys.people.idProof("p1", "FRONT"), { url: "…", expiresInSeconds: 300 });
     client.setQueryData(queryKeys.shops.list({}), emptyPage);
 
     const { result } = await renderHook(() => useDeletePerson(), { wrapper: withQueryClient(client) });
@@ -47,7 +47,7 @@ describe("useDeletePerson", () => {
 
     // The two that would 404 for a person who no longer exists.
     expect(invalidated(client, queryKeys.people.detail("p1"))).toBe(false);
-    expect(invalidated(client, queryKeys.people.aadhaar("p1", "FRONT"))).toBe(false);
+    expect(invalidated(client, queryKeys.people.idProof("p1", "FRONT"))).toBe(false);
 
     // Shops the person was linked to have genuinely lost a row.
     expect(invalidated(client, queryKeys.shops.list({}))).toBe(true);

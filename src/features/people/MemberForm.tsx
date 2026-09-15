@@ -26,7 +26,7 @@ import { formatDate } from "../../utils/format";
 import { isValidPhone, normalisePhone } from "../../utils/phone";
 import {
   firstError,
-  validateAadhaarLast4,
+  validateIdProofLast4,
   validateConsent,
   validateName,
   validatePhone,
@@ -67,13 +67,13 @@ export function MemberForm({
   const [sameWhatsApp, setSameWhatsApp] = useState(true);
   const [whatsApp, setWhatsApp] = useState("");
   const [address, setAddress] = useState("");
-  const [aadhaarLast4, setAadhaarLast4] = useState("");
+  const [idProofLast4, setIdProofLast4] = useState("");
   const [consent, setConsent] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const photo = useImageCapture("PHOTO");
-  const aadhaarFront = useImageCapture("AADHAAR_FRONT");
-  const aadhaarBack = useImageCapture("AADHAAR_BACK");
+  const idProofFront = useImageCapture("ID_PROOF_FRONT");
+  const idProofBack = useImageCapture("ID_PROOF_BACK");
 
   // Live duplicate-phone warning while typing (spec §7.2). The server is authoritative and
   // answers 409, but telling the collector before they fill the rest of the form saves a
@@ -86,7 +86,7 @@ export function MemberForm({
     select: (page) => page.content.find((person) => person.phone === debouncedPhone) ?? null
   });
 
-  const uploading = photo.busy || aadhaarFront.busy || aadhaarBack.busy;
+  const uploading = photo.busy || idProofFront.busy || idProofBack.busy;
 
   function submit() {
     // Validation order is the one the spec asks for, surfacing one plain message at a time
@@ -96,18 +96,18 @@ export function MemberForm({
       validatePhone(phone),
       sameWhatsApp ? null : validateWhatsApp(whatsApp),
       validateLinks ? validateLinks() : null,
-      validateAadhaarLast4(aadhaarLast4),
+      validateIdProofLast4(idProofLast4),
       // State-aware: distinguishes "not captured yet" from "captured but the upload
       // failed". The API now rejects a key whose object never landed in storage.
       imageFieldError(photo, "The member photo"),
-      imageFieldError(aadhaarFront, "The Aadhaar front"),
+      imageFieldError(idProofFront, "The Aadhaar front"),
       validateConsent(consent)
     );
     setValidationError(message);
     if (message) return;
 
     const trimmedAddress = address.trim();
-    const last4 = aadhaarLast4.trim();
+    const last4 = idProofLast4.trim();
 
     onSubmit({
       name: name.trim(),
@@ -117,9 +117,9 @@ export function MemberForm({
       ...(trimmedAddress ? { address: trimmedAddress } : {}),
       // Non-null by the time validation passes.
       photoKey: photo.key as string,
-      aadhaarFrontKey: aadhaarFront.key as string,
-      ...(aadhaarBack.key ? { aadhaarBackKey: aadhaarBack.key } : {}),
-      ...(last4 ? { aadhaarLast4: last4 } : {}),
+      idProofFrontKey: idProofFront.key as string,
+      ...(idProofBack.key ? { idProofBackKey: idProofBack.key } : {}),
+      ...(last4 ? { idProofLast4: last4 } : {}),
       consent: true
     });
   }
@@ -168,17 +168,17 @@ export function MemberForm({
       <Card>
         <ImageCaptureField
           label="Aadhaar front"
-          type="AADHAAR_FRONT"
-          capture={aadhaarFront}
+          type="ID_PROOF_FRONT"
+          capture={idProofFront}
           required
           note="Stored encrypted. Once saved, the image can only be opened by the admin — collectors cannot view it again."
         />
-        <ImageCaptureField label="Aadhaar back" type="AADHAAR_BACK" capture={aadhaarBack} />
+        <ImageCaptureField label="Aadhaar back" type="ID_PROOF_BACK" capture={idProofBack} />
         <Field
           label="Aadhaar — last 4 digits (optional)"
           placeholder="1234"
-          value={aadhaarLast4}
-          onChangeText={(next) => setAadhaarLast4(next.replace(/\D/g, "").slice(0, 4))}
+          value={idProofLast4}
+          onChangeText={(next) => setIdProofLast4(next.replace(/\D/g, "").slice(0, 4))}
           keyboardType="number-pad"
           maxLength={4}
         />

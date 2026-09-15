@@ -1,7 +1,7 @@
 /**
  * Server state for people.
  *
- * The Aadhaar query is the one to be careful with: it is only ever enabled for an admin,
+ * The ID-proof query is the one to be careful with: it is only ever enabled for an admin,
  * on an explicit tap, and its cached signed URL is dropped quickly because the URL itself
  * expires in five minutes and every fetch is logged server-side as a view.
  */
@@ -9,13 +9,14 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   peopleApi,
-  type AadhaarSide,
   type AddPersonLinkRequest,
   type CreatePersonRequest,
+  type IdProofReplaceRequest,
+  type IdProofSide,
   type LinkRole,
   type UpdatePersonRequest
 } from "../../api";
-import { queryKeys } from "../../app/queryKeys";
+import { isIdProofQuery, queryKeys } from "../../app/queryKeys";
 import { COUNT_ONLY, peopleCountQueryHash, shopCountQueryHash } from "../../app/countQueries";
 
 export type PeopleFilters = { query?: string; role?: LinkRole };
@@ -41,14 +42,21 @@ function usePersonInvalidation() {
   return (personId?: string) => {
     queryClient.invalidateQueries({
       queryKey: queryKeys.people.all,
-      predicate: (query) => query.queryHash !== peopleCountQueryHash
+      // Never let a bulk refresh touch an ID-proof URL — every refetch is an audit row.
+      predicate: (query) =>
+        query.queryHash !== peopleCountQueryHash && !isIdProofQuery(query)
     });
     // A link change alters the shop's people list too.
     queryClient.invalidateQueries({
       queryKey: queryKeys.shops.all,
       predicate: (query) => query.queryHash !== shopCountQueryHash
     });
-    if (personId) queryClient.invalidateQueries({ queryKey: queryKeys.people.detail(personId) });
+    if (personId) {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.people.detail(personId),
+        predicate: (query) => !isIdProofQuery(query)
+      });
+    }
   };
 }
 
@@ -87,7 +95,7 @@ export function useDeletePerson() {
     mutationFn: (id: string) => peopleApi.remove(id),
     onSuccess: () => {
       // `lists`, not `all`. Invalidating `all` refetched the deleted person's *detail* and
-      // any revealed *Aadhaar* query — both keyed beneath it — producing a pair of
+      // any revealed *ID-proof* query — both keyed beneath it — producing a pair of
       // `404 person_not_found` calls the instant a member was deleted.
       queryClient.invalidateQueries({
         queryKey: queryKeys.people.lists,
@@ -111,30 +119,60 @@ export function useUpdatePhoto(id: string) {
   });
 }
 
-export function useUpdateAadhaar(id: string) {
+/** Re-capture one side. The document type is untouched. */
+export function useRecaptureIdProofSide(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ side, key }: { side: AadhaarSide; key: string }) =>
-      peopleApi.updateAadhaar(id, side, key),
+    mutationFn: ({ side, key }: { side: IdProofSide; key: string }) =>
+      peopleApi.updateIdProofSide(id, side, key),
     onSuccess: (_result, { side }) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.people.detail(id) });
-      // Drop any signed URL for the side that was replaced.
-      queryClient.removeQueries({ queryKey: queryKeys.people.aadhaar(id, side) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.people.detail(id),
+        predicate: (query) => !isIdProofQuery(query)
+      });
+      // `remove`, not `invalidate`. Two independent reasons, both load-bearing:
+      //  1. the superseded object is enqueued into `orphaned_media` and deleted by a daily
+      //     job, so a signed URL we still hold points at bytes that will stop existing;
+      //  2. invalidating an *active* query refetches it, and a refetch writes a VIEW row to
+      //     `id_proof_access_log` that the admin never asked for.
+      queryClient.removeQueries({ queryKey: queryKeys.people.idProof(id, side) });
     }
   });
 }
 
 /**
- * A signed URL for a stored Aadhaar image.
+ * Replace the whole document — the only way to change its type.
  *
- * **Admin only, and every successful call writes a VIEW row to `aadhaar_access_log`.** Pass
+ * Both sides are superseded: the new front replaces the old one, and an omitted `backKey`
+ * clears the back outright. Every signed URL we hold is about to 404 for good.
+ */
+export function useReplaceIdProof(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: IdProofReplaceRequest) => peopleApi.replaceIdProof(id, body),
+    onSuccess: () => {
+      // The type and last four live on the profile.
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.people.detail(id),
+        predicate: (query) => !isIdProofQuery(query)
+      });
+      queryClient.removeQueries({ queryKey: queryKeys.people.idProof(id, "FRONT") });
+      queryClient.removeQueries({ queryKey: queryKeys.people.idProof(id, "BACK") });
+    }
+  });
+}
+
+/**
+ * A signed URL for a stored ID-proof image.
+ *
+ * **Admin only, and every successful call writes a VIEW row to `id_proof_access_log`.** Pass
  * `enabled` false for anyone else — the rule is not to call it at all, not to call it and
  * handle the 403 (integration doc §9).
  */
-export function useAadhaarUrl(id: string, side: AadhaarSide, enabled: boolean) {
+export function useIdProofUrl(id: string, side: IdProofSide, enabled: boolean) {
   return useQuery({
-    queryKey: queryKeys.people.aadhaar(id, side),
-    queryFn: () => peopleApi.aadhaarUrl(id, side),
+    queryKey: queryKeys.people.idProof(id, side),
+    queryFn: () => peopleApi.idProofUrl(id, side),
     enabled,
     // The URL lives ~5 minutes. Don't hand a stale one to an <Image>, and don't keep it
     // around in memory longer than it's usable.
@@ -145,7 +183,7 @@ export function useAadhaarUrl(id: string, side: AadhaarSide, enabled: boolean) {
     //
     // Without these, React Query's defaults (staleTime elapsed + focus/reconnect refetch)
     // would re-request the URL after four minutes of the panel being open, and the server
-    // writes a VIEW row to `aadhaar_access_log` on every request. The audit trail would then
+    // writes a VIEW row to `id_proof_access_log` on every request. The audit trail would then
     // contain views the admin never asked for, which defeats the point of logging them.
     refetchOnMount: false,
     refetchOnWindowFocus: false,

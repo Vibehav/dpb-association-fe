@@ -1,13 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
-import { isCode, type AadhaarSide, type PersonProfile } from "../../../api";
+import { isCode, type IdProofSide, type PersonProfile } from "../../../api";
 import { usePermissions } from "../../../auth/usePermissions";
 import { Banner, Button, Card } from "../../../components/ui";
 import { useImageCapture } from "../../../media";
 import { colors, radii, spacing, typography } from "../../../theme";
 import { formatDate } from "../../../utils/format";
-import { useAadhaarUrl, useUpdateAadhaar } from "../hooks";
+import { useIdProofUrl, useRecaptureIdProofSide } from "../hooks";
 
 /**
  * Aadhaar on file — the strictest data in the app (integration doc §9, spec §4.3).
@@ -30,8 +30,8 @@ export function AadhaarPanel({ person }: { person: PersonProfile }) {
       <Text style={typography.eyebrow}>Aadhaar on file</Text>
 
       <Text style={typography.body}>
-        {person.aadhaarLast4
-          ? `Ends in ${person.aadhaarLast4}`
+        {person.idProofLast4
+          ? `Ends in ${person.idProofLast4}`
           : "Last four digits not recorded."}
       </Text>
       {/*
@@ -42,7 +42,7 @@ export function AadhaarPanel({ person }: { person: PersonProfile }) {
        * collector re-captures, these values still name whoever created the member. It used
        * to read "Captured by Ishwar", which actively misattributed the image.
        *
-       * Every re-capture *is* recorded server-side in `aadhaar_access_log` with actor, side
+       * Every re-capture *is* recorded server-side in `id_proof_access_log` with actor, side
        * and timestamp — but no endpoint exposes it, so it can't be shown here. Displaying
        * "last captured by X" needs the API to surface it (see 12-open-gaps.md).
        */}
@@ -74,15 +74,15 @@ function SideCard({
   canWrite
 }: {
   personId: string;
-  side: AadhaarSide;
+  side: IdProofSide;
   isAdmin: boolean;
   canWrite: boolean;
 }) {
   const [revealed, setRevealed] = useState(false);
   // Enabled only for an admin who has explicitly asked. Never prefetched.
-  const signed = useAadhaarUrl(personId, side, isAdmin && revealed);
-  const capture = useImageCapture(side === "FRONT" ? "AADHAAR_FRONT" : "AADHAAR_BACK");
-  const update = useUpdateAadhaar(personId);
+  const signed = useIdProofUrl(personId, side, isAdmin && revealed);
+  const capture = useImageCapture(side === "FRONT" ? "ID_PROOF_FRONT" : "ID_PROOF_BACK");
+  const update = useRecaptureIdProofSide(personId);
 
   // A finished upload is attached immediately — a re-capture is one action, not two.
   useEffect(() => {
@@ -94,7 +94,7 @@ function SideCard({
   }, [capture.key]);
 
   const label = side === "FRONT" ? "Front" : "Back";
-  const missing = isCode(signed.error, "aadhaar_missing");
+  const missing = isCode(signed.error, "id_proof_missing");
 
   return (
     <View style={styles.side}>

@@ -63,7 +63,7 @@ describe("enum labels", () => {
   });
 
   it("titleCase expands underscores", () => {
-    expect(titleCase("AADHAAR_FRONT")).toBe("Aadhaar Front");
+    expect(titleCase("ID_PROOF_FRONT")).toBe("Id Proof Front");
   });
 });
 

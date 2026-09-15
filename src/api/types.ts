@@ -33,8 +33,34 @@ export type LinkRole = "OWNER" | "RENTER" | "STAFF";
 export type LinkableRole = Extract<LinkRole, "RENTER" | "STAFF">;
 export const LINKABLE_ROLES: LinkableRole[] = ["RENTER", "STAFF"];
 
-export type MediaType = "PHOTO" | "AADHAAR_FRONT" | "AADHAAR_BACK";
-export type AadhaarSide = "FRONT" | "BACK";
+/**
+ * The government ID the association holds a copy of. Mirrors the API's `IdProofType`.
+ *
+ * `DRIVING_LICENSE` is the API's spelling and it is American. **Do not "correct" it** — it
+ * is the wire value, and an unknown string is a 400 `validation_error` because Jackson
+ * cannot deserialise it. The *display* spelling is Indian English; see `idProofLabel`.
+ */
+export type IdProofType = "AADHAAR" | "DRIVING_LICENSE" | "PASSPORT" | "VOTER_ID" | "PAN";
+
+/** Picker order: Aadhaar first, because it is what all but a handful of members present. */
+export const ID_PROOF_TYPES: IdProofType[] = [
+  "AADHAAR",
+  "DRIVING_LICENSE",
+  "PASSPORT",
+  "VOTER_ID",
+  "PAN"
+];
+
+/**
+ * `ID_PROOF_FRONT` and `ID_PROOF_BACK` map to the **same** `id-proofs/` prefix server-side,
+ * so the API cannot catch a front/back mix-up — only a photo key used as an ID-proof key or
+ * vice versa (400 `invalid_media_key`). Wiring each capture slot to the right value is
+ * therefore entirely this client's responsibility.
+ */
+export type MediaType = "PHOTO" | "ID_PROOF_FRONT" | "ID_PROOF_BACK";
+
+/** Case-sensitive on the wire: it is a path segment bound by Spring's default converter. */
+export type IdProofSide = "FRONT" | "BACK";
 export type OtpPurpose = "FIRST_LOGIN" | "PIN_RESET";
 
 // ---------------------------------------------------------------------------
@@ -173,7 +199,10 @@ export type PersonProfile = {
   phone: string;
   whatsappPhone: string;
   address: string | null;
-  aadhaarLast4: string | null;
+  /** Which ID is on file. Never null — the API's column is `NOT NULL`. */
+  idProofType: IdProofType;
+  /** Last four characters — letters are possible, a PAN ends in one. Null when unrecorded. */
+  idProofLast4: string | null;
   consent: boolean;
   addedByName: string | null;
   /** ISO instant. Times are UTC — present in IST. */
@@ -192,10 +221,18 @@ export type NewPersonPayload = {
   address?: string;
   /** From the upload flow. Mandatory. */
   photoKey: string;
-  /** From the upload flow. Mandatory. */
-  aadhaarFrontKey: string;
-  aadhaarBackKey?: string;
-  aadhaarLast4?: string;
+  /** From the upload flow, captured as `ID_PROOF_FRONT`. Mandatory. */
+  idProofFrontKey: string;
+  /** From the upload flow, `ID_PROOF_BACK`. Optional — a PAN card has no useful back. */
+  idProofBackKey?: string;
+  /**
+   * Optional, exactly 4 letters or digits.
+   *
+   * **Omit the key entirely when blank; never send `""`.** The API's `@Pattern` has no
+   * `@NotBlank` beside it, so an empty string *fails* validation while an absent key is
+   * accepted. This is the one trap in the whole contract.
+   */
+  idProofLast4?: string;
   /** Must be true. */
   consent: boolean;
 };
@@ -214,6 +251,22 @@ export type UpdatePersonRequest = {
 };
 
 export type AddPersonLinkRequest = { shopId: string; role: LinkableRole };
+
+/**
+ * Body of `PUT /people/{id}/id-proof` — a **whole-document** replace, and the only way to
+ * change the type.
+ *
+ * Every field is written unconditionally server-side: an omitted `backKey` **clears** the
+ * stored back image and an omitted `last4` **wipes** it to null. There is no partial update
+ * here; send the document as it should end up.
+ */
+export type IdProofReplaceRequest = {
+  type: IdProofType;
+  frontKey: string;
+  backKey?: string;
+  /** Omit when blank — `""` is a 400, see `NewPersonPayload.idProofLast4`. */
+  last4?: string;
+};
 
 export type PeopleListParams = {
   query?: string;

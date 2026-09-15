@@ -4,7 +4,7 @@ import {
   firstError,
   OTP_LENGTH,
   PIN_LENGTH,
-  validateAadhaarLast4,
+  validateIdProofLast4,
   validateBusinessName,
   validateConsent,
   validateEmail,
@@ -85,15 +85,15 @@ describe("required text fields", () => {
 
 describe("Aadhaar last 4 — optional, but exactly 4 digits when given", () => {
   it("accepts empty or four digits", () => {
-    ok(validateAadhaarLast4(""));
-    ok(validateAadhaarLast4("   "));
-    ok(validateAadhaarLast4("1234"));
+    ok(validateIdProofLast4(""));
+    ok(validateIdProofLast4("   "));
+    ok(validateIdProofLast4("1234"));
   });
 
   it("rejects a partial or non-numeric value rather than silently truncating", () => {
-    fails(validateAadhaarLast4("123"));
-    fails(validateAadhaarLast4("12345"));
-    fails(validateAadhaarLast4("12a4"));
+    fails(validateIdProofLast4("123"));
+    fails(validateIdProofLast4("12345"));
+    fails(validateIdProofLast4("12a4"));
   });
 });
 

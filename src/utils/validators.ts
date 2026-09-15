@@ -58,16 +58,16 @@ export function validateLane(value: string) {
 }
 
 /** Optional, but must be exactly 4 digits when given. */
-export function validateAadhaarLast4(value: string) {
+export function validateIdProofLast4(value: string) {
   if (!value.trim()) return null;
-  return /^[0-9]{4}$/.test(value.trim()) ? null : "Aadhaar last 4 digits must be 4 numbers.";
+  return /^[0-9]{4}$/.test(value.trim()) ? null : "ID proof last 4 digits must be 4 numbers.";
 }
 
 export function validateConsent(consent: boolean) {
   return consent ? null : "The member must consent before their details can be saved.";
 }
 
-// §8's "photo and Aadhaar front are mandatory" rule lives in `media/validation.ts` as
+// §8's "photo and ID-proof front are mandatory" rule lives in `media/validation.ts` as
 // `imageFieldError`, which also needs the capture state to tell "not captured" apart from
 // "upload failed" — a distinction the API now enforces via `media_not_uploaded`.
 

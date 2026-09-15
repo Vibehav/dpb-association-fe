@@ -83,17 +83,23 @@ describe("required text fields", () => {
   });
 });
 
-describe("Aadhaar last 4 — optional, but exactly 4 digits when given", () => {
-  it("accepts empty or four digits", () => {
+describe("ID proof last 4 — optional, but exactly 4 letters or digits when given", () => {
+  it("accepts empty, four digits, or four alphanumerics", () => {
     ok(validateIdProofLast4(""));
     ok(validateIdProofLast4("   "));
     ok(validateIdProofLast4("1234"));
+    // The whole point of the widening: a PAN ends in a letter (ABCDE1234F -> 234F).
+    ok(validateIdProofLast4("234F"));
+    // Lower case passes because the *server's* class is [A-Za-z0-9]. `Field` uppercases on
+    // the way in, but the validator must never be stricter than the API.
+    ok(validateIdProofLast4("234f"));
   });
 
-  it("rejects a partial or non-numeric value rather than silently truncating", () => {
+  it("rejects a partial value, or anything outside letters and digits", () => {
     fails(validateIdProofLast4("123"));
     fails(validateIdProofLast4("12345"));
-    fails(validateIdProofLast4("12a4"));
+    fails(validateIdProofLast4("12 4"));
+    fails(validateIdProofLast4("12-4"));
   });
 });
 

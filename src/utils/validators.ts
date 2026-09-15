@@ -57,10 +57,24 @@ export function validateLane(value: string) {
   return value.trim() ? null : "Enter the lane or wing.";
 }
 
-/** Optional, but must be exactly 4 digits when given. */
+/**
+ * Optional, but exactly 4 letters or digits when given — a PAN ends in one (`ABCDE1234F`
+ * → `234F`) and driving-licence formats vary by state. Mirrors the API's
+ * `@Pattern("[A-Za-z0-9]{4}")`.
+ *
+ * Lower case is accepted deliberately: the class matches the server's exactly. A client
+ * validator that is *stricter* than the API rejects values the API would have taken, and
+ * the uppercasing is a `Field` concern that a paste or a prefill need not have gone
+ * through.
+ *
+ * Note what this does *not* do — an empty value is valid here, but the caller must then
+ * omit the field from the payload rather than send `""`, which the API rejects.
+ */
 export function validateIdProofLast4(value: string) {
   if (!value.trim()) return null;
-  return /^[0-9]{4}$/.test(value.trim()) ? null : "ID proof last 4 digits must be 4 numbers.";
+  return /^[A-Za-z0-9]{4}$/.test(value.trim())
+    ? null
+    : "Last 4 must be exactly 4 letters or numbers.";
 }
 
 export function validateConsent(consent: boolean) {

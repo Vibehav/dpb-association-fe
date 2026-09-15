@@ -221,6 +221,8 @@ export type NewPersonPayload = {
   address?: string;
   /** From the upload flow. Mandatory. */
   photoKey: string;
+  /** Which document was captured. Required — null or an unknown value is a 400. */
+  idProofType: IdProofType;
   /** From the upload flow, captured as `ID_PROOF_FRONT`. Mandatory. */
   idProofFrontKey: string;
   /** From the upload flow, `ID_PROOF_BACK`. Optional — a PAN card has no useful back. */

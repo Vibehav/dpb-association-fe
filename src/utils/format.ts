@@ -17,6 +17,16 @@ export function initials(name: string) {
     .toUpperCase();
 }
 
+/**
+ * Record text is stored and shown in capitals — names, business names, lanes, addresses
+ * and shop numbers. Applied as the user types (see `Field`'s `uppercase` prop) so what is
+ * on screen is exactly what is sent. Numeric fields and email addresses are excluded:
+ * digits have no case, and an uppercased email reads as shouting.
+ */
+export function upperCase(value: string) {
+  return value.toUpperCase();
+}
+
 /** "OWNER_RUN" → "Owner Run". For rendering server enums. */
 export function titleCase(value: string) {
   return value

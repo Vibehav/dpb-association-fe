@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { errorMessage, isCode, type CommitteeMember, type Role } from "../../api";
 import { Banner, Button, Chip, ChipRow, Field, Sheet } from "../../components/ui";
 import { colors, spacing, typography } from "../../theme";
-import { titleCase } from "../../utils/format";
+import { titleCase, upperCase } from "../../utils/format";
 import { formatPhone } from "../../utils/phone";
 import { firstError, validateEmail, validateName } from "../../utils/validators";
 import { useRemoveCommitteeMember, useResetPin, useUpdateCommitteeMember } from "./hooks";
@@ -42,7 +42,7 @@ export function MemberActionsSheet({ member, isSelf, onClose }: Props) {
     setConfirming(null);
     setError(null);
     setEmailError(null);
-    setName(member?.name ?? "");
+    setName(upperCase(member?.name ?? ""));
     setEmail(member?.email ?? "");
     setSelectedRole(member?.role ?? "COLLECTOR");
   }, [member?.id, member?.name, member?.email, member?.role]);
@@ -137,7 +137,7 @@ export function MemberActionsSheet({ member, isSelf, onClose }: Props) {
 
       <View style={styles.block}>
         <Text style={typography.eyebrow}>Member details</Text>
-        <Field label="Full name" value={name} onChangeText={setName} autoCapitalize="characters" />
+        <Field label="Full name" value={name} onChangeText={setName} uppercase />
         <Field
           label="Email address"
           value={email}

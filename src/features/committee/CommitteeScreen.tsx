@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import type { CommitteeMember } from "../../api";
 import { useMe } from "../../auth/useMe";
 import { Avatar, Banner, Button, Card, Chip, ErrorState, LoadingScreen, Screen } from "../../components/ui";

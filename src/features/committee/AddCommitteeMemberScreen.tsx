@@ -98,7 +98,7 @@ export function AddCommitteeMemberScreen({ navigation }: Props) {
           value={name}
           onChangeText={setName}
           autoCorrect={true}
-          autoCapitalize="characters"
+          uppercase
         />
         <PhoneField
           label="Mobile number"
@@ -137,14 +137,14 @@ export function AddCommitteeMemberScreen({ navigation }: Props) {
           ))}
         </ChipRow>
         {selected ? (
-  <View style={styles.description}>
-    {selected.description.map((item) => (
-      <Text key={item} style={typography.body}>
-        • {item}
-      </Text>
-    ))}
-  </View>
-) : null}
+          <View style={styles.description}>
+            {selected.description.map((item) => (
+              <Text key={item} style={typography.body}>
+                • {item}
+              </Text>
+            ))}
+          </View>
+        ) : null}
       </Card>
 
       <View style={styles.note}>

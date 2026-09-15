@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { errorMessage, isCode } from "../../api";
 import { Banner, Button, Card, CheckRow, ErrorState, Field, LoadingScreen, PhoneField, Screen } from "../../components/ui";
 import type { AppStackParamList } from "../../navigation/types";
+import { upperCase } from "../../utils/format";
 import { normalisePhone } from "../../utils/phone";
 import { firstError, validateName, validatePhone, validateWhatsApp } from "../../utils/validators";
 import { usePerson, useUpdatePerson } from "./hooks";
@@ -31,11 +32,11 @@ export function PersonEditScreen({ navigation, route }: Props) {
   useEffect(() => {
     const data = person.data;
     if (!data) return;
-    setName(data.name);
+    setName(upperCase(data.name));
     setPhone(data.phone);
     setSameWhatsApp(data.whatsappPhone === data.phone);
     setWhatsApp(data.whatsappPhone);
-    setAddress(data.address ?? "");
+    setAddress(upperCase(data.address ?? ""));
   }, [person.data]);
 
   if (person.isPending) return <LoadingScreen />;
@@ -80,7 +81,7 @@ export function PersonEditScreen({ navigation, route }: Props) {
   return (
     <Screen>
       <Card>
-        <Field label="Full name" value={name} onChangeText={setName} autoCapitalize="words" />
+        <Field label="Full name" value={name} onChangeText={setName} uppercase />
         <PhoneField
           label="Phone"
           value={phone}
@@ -99,7 +100,7 @@ export function PersonEditScreen({ navigation, route }: Props) {
         {!sameWhatsApp ? (
           <PhoneField label="WhatsApp number" value={whatsApp} onChangeText={setWhatsApp} />
         ) : null}
-        <Field label="Address" value={address} onChangeText={setAddress} multiline />
+        <Field label="Address" value={address} onChangeText={setAddress} multiline uppercase />
       </Card>
 
       {formError ? <Banner message={formError} /> : null}

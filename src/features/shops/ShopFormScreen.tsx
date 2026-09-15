@@ -6,6 +6,7 @@ import { PersonPicker } from "../../components/search/PersonPicker";
 import { Banner, Button, Card, Chip, ChipRow, ErrorState, Field, LoadingScreen, Screen } from "../../components/ui";
 import type { AppStackParamList } from "../../navigation/types";
 import { spacing, typography } from "../../theme";
+import { upperCase } from "../../utils/format";
 import { formatPhone } from "../../utils/phone";
 import { firstError, validateBusinessName, validateLane, validateShopNumber } from "../../utils/validators";
 import { MemberForm } from "../people/MemberForm";
@@ -64,9 +65,9 @@ export function ShopFormScreen({ navigation, route }: Props) {
   useEffect(() => {
     const shop = existing.data;
     if (!editing || !shop) return;
-    setShopNumber(shop.shopNumber);
-    setBusinessName(shop.businessName);
-    setLane(shop.lane);
+    setShopNumber(upperCase(shop.shopNumber));
+    setBusinessName(upperCase(shop.businessName));
+    setLane(upperCase(shop.lane));
     setTenancy(shop.tenancy);
   }, [editing, existing.data]);
 
@@ -202,21 +203,21 @@ export function ShopFormScreen({ navigation, route }: Props) {
             setFieldError(null);
           }}
           error={fieldError}
-          autoCapitalize="characters"
+          uppercase
         />
         <Field
           label="Business name on the board"
           placeholder="e.g. Shree Ganesh Flowers"
           value={businessName}
           onChangeText={setBusinessName}
-          autoCapitalize="words"
+          uppercase
         />
         <Field
           label="Wing or lane"
           placeholder="e.g. A Wing, Lane 3"
           value={lane}
           onChangeText={setLane}
-          autoCapitalize="words"
+          uppercase
         />
 
         <Text style={typography.eyebrow}>How it is run</Text>

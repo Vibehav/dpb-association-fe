@@ -20,11 +20,11 @@ describe("the code list", () => {
     const mustKnow = [
       "unauthorized", "invalid_token", "wrong_pin", "pin_locked", "pin_not_set",
       "invalid_refresh", "invalid_reset_token", "not_on_committee",
-      "otp_invalid", "otp_expired", "otp_attempts_exhausted", "otp_throttled",
+      "otp_invalid", "otp_expired", "otp_attempts_exhausted", "otp_throttled", "otp_send_failed", "no_email_on_file",
       "duplicate_shop_number", "shop_not_found", "no_owner", "already_owner",
       "owner_not_addable", "owner_not_removable", "renter_exists", "already_linked",
       "link_not_found", "duplicate_phone", "person_not_found", "person_input",
-      "consent_required", "committee_not_found", "self_action", "last_admin",
+      "consent_required", "committee_not_found", "duplicate_email", "nothing_to_update", "self_action", "last_admin",
       "aadhaar_missing", "invalid_media_key", "media_not_uploaded",
       "forbidden", "validation_error"
     ];
@@ -102,6 +102,13 @@ describe("errorMessage", () => {
   it("explains the new media codes in terms the user can act on", () => {
     expect(errorMessage(new ApiError(400, "media_not_uploaded", "No uploaded file found"))).toMatch(/retake/i);
     expect(errorMessage(new ApiError(400, "invalid_media_key", "not a valid PHOTO key"))).toMatch(/retake/i);
+  });
+
+  it("gives actionable copy for email OTP delivery failures", () => {
+    expect(errorMessage(new ApiError(502, "otp_send_failed", "Provider rejected the send"))).toBe(
+      "Couldn't send the code, please try again."
+    );
+    expect(errorMessage(new ApiError(409, "no_email_on_file", "No email found"))).toMatch(/contact the treasurer/i);
   });
 
   it("handles a plain Error and an unknown throw", () => {

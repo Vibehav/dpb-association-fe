@@ -62,8 +62,9 @@ export function PinScreen({ navigation, route }: Props) {
     setBusy(true);
     setError(null);
     try {
+      const member = await authApi.checkPhone(phone);
       await authApi.requestOtp(phone, purpose);
-      navigation.navigate("Otp", { phone, purpose });
+      navigation.navigate("Otp", { phone, purpose, emailHint: member.emailHint });
     } catch (caught) {
       setError(errorMessage(caught, "Couldn't send a code."));
     } finally {

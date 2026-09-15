@@ -65,6 +65,25 @@ a short-lived **access token** and a longer **refresh token** (rotated on every 
 
 **Token pair** = `{ accessToken, refreshToken, tokenType: "Bearer", expiresInSeconds }`.
 
+### 2.1a Email OTP migration addendum (current)
+
+> ⚠️ **Removed / superseded — do not implement the pre-email OTP contract above as written.**
+> It predates the backend's email-delivery change. The unchanged request and verification
+> endpoints still identify the member by phone; only code delivery and the surrounding
+> committee data changed.
+
+- `POST /auth/phone` now returns `{onCommittee, firstName?, pinSet, emailHint}`. `emailHint`
+  is masked and is `null` when `onCommittee=false`; show it on the OTP screen.
+- `POST /committee` requires `email` in addition to name, phone and role.
+- `PATCH /committee/{id}` accepts a partial body: `{role?, email?, name?}`. A signed-in admin
+  may edit their own name/email, but may not change their own role.
+- `GET /committee` and `GET /committee/{id}` return `email`; show it exactly as returned so an
+  admin can correct legacy placeholder addresses such as `@invalid.local`.
+- OTPs are emailed for first login and PIN resets. They remain six digits, expire after ten
+  minutes, and retain the 60-second resend throttle.
+- Handle `otp_send_failed` (502) with “Couldn't send the code, please try again” and leave
+  Resend enabled. Handle `no_email_on_file` (409) by asking the member to contact the treasurer.
+
 ### 2.2 Sign-in flow (screens map to design)
 
 1. **Number screen:** `+91` fixed, 10-digit input. On continue → `POST /auth/phone`.
@@ -138,6 +157,13 @@ from the initials top-right, not a tab). **Events** and **Fund** tabs are v2 —
 v1 has **no dashboard/metrics endpoint** and no money data. Keep Home light:
 - Show shop/people counts by reading `totalElements` from `GET /shops?size=1` and
   `GET /people?size=1`.
+- Cache those two count queries with `staleTime: Infinity`. Fetch them on Home's first load,
+  then reuse the cached values on subsequent Home mounts, navigation returns and ordinary
+  renders. Do not add a focus-based refetch for the count cards.
+- Pull-to-refresh (and Home's error retry) explicitly refetches **both** count queries.
+  Successful shop create/delete invalidates only the shop count; successful member create/delete
+  invalidates only the member count. Registering a shop with an inline new owner also invalidates
+  the member count, because that operation creates a member.
 - Provide quick entry points to Shops and People (and, for admins, Committee via Account).
 - **Do not** render fund balance, event cards, pending collections, or top contributors —
   those are v2.

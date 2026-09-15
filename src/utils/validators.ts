@@ -24,6 +24,13 @@ export function validatePhone(value: string) {
   return null;
 }
 
+/** Required for committee sign-in: first-login and reset codes arrive by email. */
+export function validateEmail(value: string) {
+  const email = value.trim();
+  if (!email) return "Enter an email address.";
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? null : "Enter a valid email address.";
+}
+
 /** WhatsApp is optional — it defaults to the phone server-side when omitted. */
 export function validateWhatsApp(value: string) {
   if (!value.trim()) return null;

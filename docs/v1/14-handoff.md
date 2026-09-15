@@ -60,6 +60,10 @@ explicitly when scripting.
 COLLECTOR whose PIN was reset (first-login OTP required). `Vishal Again` `9700000001` is an
 active VIEWER with no PIN set. Dev OTPs print to the API console — there is no SMS provider.
 
+> ⚠️ **Removed / superseded — do not follow the preceding DEV OTP sentence.** The backend now
+> emails first-login and PIN-reset codes to the registered committee email. The updated contract
+> and implementation notes are in [15-email-otp.md](15-email-otp.md).
+
 **Seed data is 6 shops / 13 people**, and was mutated during testing: Ramesh Patil's photo and
 Aadhaar front are the association logo. The committee roster carries several soft-removed test
 accounts, which is by design but noisy.
@@ -97,6 +101,9 @@ already happened. Breaking them is how this app does real damage.
 
 The only unverified thing with a security consequence. `Vishal Again` (9700000001) is ready —
 first-login OTP prints to the API console.
+
+> ⚠️ **Removed / superseded:** “first-login OTP prints to the API console.” Use the registered
+> email inbox instead; see [15-email-otp.md](15-email-otp.md).
 
 A viewer must see **no**: Register new shop, Add a member, any Edit, Add person to this shop,
 Link another shop, Retake, Delete, Transfer, Committee row, or Aadhaar **View** button. The

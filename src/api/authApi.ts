@@ -29,7 +29,11 @@ export const authApi = {
     });
   },
 
-  /** 202 on success · 429 `otp_throttled` inside the 60s resend window. */
+  /**
+   * 202 on success · 429 `otp_throttled` inside the 60s resend window · 502
+   * `otp_send_failed` when the email provider rejects delivery · 409 `no_email_on_file` when
+   * the committee member needs an email address added by the treasurer.
+   */
   requestOtp(phone: string, purpose: OtpPurpose) {
     return request<void>("/auth/otp/request", {
       method: "POST",

@@ -132,7 +132,7 @@ export function MemberForm({
           placeholder="As written on the Aadhaar card"
           value={name}
           onChangeText={setName}
-          autoCapitalize="words"
+          uppercase
         />
         <ImageCaptureField label="Member photo" type="PHOTO" capture={photo} required />
       </Card>
@@ -161,6 +161,7 @@ export function MemberForm({
           value={address}
           onChangeText={setAddress}
           multiline
+          uppercase
         />
       </Card>
 

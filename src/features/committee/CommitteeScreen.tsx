@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import type { CommitteeMember } from "../../api";
 import { useMe } from "../../auth/useMe";
 import { Avatar, Banner, Button, Card, Chip, ErrorState, LoadingScreen, Screen } from "../../components/ui";
@@ -47,7 +47,7 @@ export function CommitteeScreen({ navigation }: Props) {
       {activeAdmins === 1 ? (
         <Banner
           tone="notice"
-          message="You are the only admin. Add a second one before changing or removing an admin — the association must always keep one."
+          message="You are the only admin. Add a second one before changing or removing an admin."
         />
       ) : null}
 
@@ -56,11 +56,9 @@ export function CommitteeScreen({ navigation }: Props) {
           key={member.id}
           member={member}
           isSelf={member.id === me.data?.id}
-          // You cannot act on yourself — another admin must (spec §6.13). Removed members
-          // have nothing left to change.
-          onPress={
-            member.active && member.id !== me.data?.id ? () => setSelected(member) : undefined
-          }
+          // A signed-in admin may correct their own name/email, but not their role. Removed
+          // members have nothing left to change.
+          onPress={member.active ? () => setSelected(member) : undefined}
         />
       ))}
 
@@ -70,7 +68,11 @@ export function CommitteeScreen({ navigation }: Props) {
         onPress={() => navigation.navigate("AddCommitteeMember")}
       />
 
-      <MemberActionsSheet member={selected} onClose={() => setSelected(null)} />
+      <MemberActionsSheet
+        member={selected}
+        isSelf={selected?.id === me.data?.id}
+        onClose={() => setSelected(null)}
+      />
     </Screen>
   );
 }
@@ -94,6 +96,7 @@ function MemberCard({
             {isSelf ? <Chip label="You" /> : null}
           </View>
           <Text style={styles.mono}>{formatPhone(member.phone)}</Text>
+          <Text style={typography.bodySmall}>{member.email}</Text>
           {!member.active ? (
             <Text style={typography.bodySmall}>Removed {formatDate(member.removedAt)}</Text>
           ) : !member.pinSet ? (
@@ -105,7 +108,8 @@ function MemberCard({
 
       {isSelf && member.active ? (
         <Text style={typography.bodySmall}>
-          Another admin has to change or remove you. Change your own M-PIN from Account.
+          You can correct your own name or email. Another admin must change your role or remove
+          you. Change your own M-PIN from Account.
         </Text>
       ) : null}
     </Card>

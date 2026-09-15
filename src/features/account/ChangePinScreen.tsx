@@ -1,15 +1,15 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { authApi, errorMessage } from "../../api";
+import { authApi, errorMessage, isCode } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 import { CodeDots } from "../../components/auth/CodeDots";
 import { Keypad } from "../../components/auth/Keypad";
+import { OtpDeliveryNotice } from "../../components/auth/OtpDeliveryNotice";
 import { Banner, Button, Card, Screen } from "../../components/ui";
 import { useCountdown } from "../../hooks/useCountdown";
 import type { AppStackParamList } from "../../navigation/types";
 import { colors, spacing, typography } from "../../theme";
-import { formatPhone } from "../../utils/phone";
 import { OTP_LENGTH, PIN_LENGTH } from "../../utils/validators";
 
 type Props = NativeStackScreenProps<AppStackParamList, "ChangePin">;
@@ -32,6 +32,7 @@ export function ChangePinScreen({ navigation }: Props) {
   const [code, setCode] = useState("");
   const [pin, setPin] = useState("");
   const [resetToken, setResetToken] = useState("");
+  const [emailHint, setEmailHint] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const cooldown = useCountdown();
@@ -49,11 +50,14 @@ export function ChangePinScreen({ navigation }: Props) {
     setBusy(true);
     setError(null);
     try {
+      const member = await authApi.checkPhone(phone!);
       await authApi.requestOtp(phone!, "PIN_RESET");
+      setEmailHint(member.emailHint);
       setCode("");
       cooldown.start(RESEND_COOLDOWN_SECONDS);
       setStep("otp");
     } catch (caught) {
+      if (isCode(caught, "otp_throttled")) cooldown.start(RESEND_COOLDOWN_SECONDS);
       setError(errorMessage(caught, "Couldn't send a code."));
     } finally {
       setBusy(false);
@@ -99,8 +103,8 @@ export function ChangePinScreen({ navigation }: Props) {
           <Card>
             <Text style={typography.eyebrow}>Change your M-PIN</Text>
             <Text style={typography.body}>
-              We&apos;ll send a one-time code to {formatPhone(phone)}. Enter it, then choose a
-              new {PIN_LENGTH}-digit PIN.
+              We&apos;ll email a one-time code to your registered email address. Enter it, then
+              choose a new {PIN_LENGTH}-digit PIN.
             </Text>
           </Card>
           {error ? <Banner message={error} /> : null}
@@ -110,10 +114,7 @@ export function ChangePinScreen({ navigation }: Props) {
 
       {step === "otp" ? (
         <>
-          <View style={styles.block}>
-            <Text style={typography.bodySmall}>Code sent to</Text>
-            <Text style={styles.mono}>{formatPhone(phone)}</Text>
-          </View>
+          <OtpDeliveryNotice emailHint={emailHint} />
           <CodeDots filled={code.length} total={OTP_LENGTH} />
           {error ? <Banner message={error} /> : null}
           <Keypad
@@ -166,7 +167,6 @@ export function ChangePinScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   block: { alignItems: "center", gap: spacing.xs },
-  mono: { ...typography.mono, fontSize: 13 },
   link: { alignItems: "center" },
   muted: { color: colors.muted },
   action: { color: colors.primary }

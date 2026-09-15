@@ -60,6 +60,8 @@ export type PhoneCheckResponse = {
   firstName: string | null;
   /** Null when not on the committee; false means route into the first-login OTP flow. */
   pinSet: boolean | null;
+  /** Masked delivery address. Null for a number that is not on the committee. */
+  emailHint: string | null;
 };
 
 export type ResetTokenResponse = { resetToken: string };
@@ -246,6 +248,8 @@ export type CommitteeMember = {
   id: string;
   name: string;
   phone: string;
+  /** Used for first-login and M-PIN reset codes. */
+  email: string;
   role: Role;
   active: boolean;
   /** False for a freshly added member — they set their own PIN on first sign-in. */
@@ -257,5 +261,14 @@ export type CommitteeMember = {
 export type AddCommitteeMemberRequest = {
   name: string;
   phone: string;
+  /** Required: first-login and M-PIN reset codes are delivered here. */
+  email: string;
   role: Role;
+};
+
+/** At least one field must be supplied to `PATCH /committee/{id}`. */
+export type UpdateCommitteeMemberRequest = {
+  role?: Role;
+  email?: string;
+  name?: string;
 };

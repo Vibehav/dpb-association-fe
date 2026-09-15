@@ -17,7 +17,7 @@ screen.
 | Existing auth | **Keep and extend.** The phone → PIN → OTP flow and the single-flight 401→refresh were correct. Everything else was restructured around them. |
 | v2 money UI | **Deleted, not placeholdered.** `mockData.ts` rendered fabricated ₹ figures that read as real. |
 | Navigation | React Navigation: `native-stack` + `bottom-tabs`. No `gesture-handler` — native-stack doesn't need it. |
-| Server state | TanStack Query. `staleTime: 0` so every mount and foreground refetches, which is how §2.3's "re-derived on every screen" is actually implemented. |
+| Server state | TanStack Query. `staleTime: 0` by default so screen data refetches on mount and foreground; Home's two count queries are the intentional exception and use explicit invalidation. |
 | Bottom sheets | **No Reanimated / `@gorhom/bottom-sheet`.** Multi-field flows use native-stack modal screens; destructive confirms use an in-house `Sheet` on RN `Modal`. |
 | Forms | `react-hook-form` is installed but the forms hand-roll their state — the field sets are small and validation must mirror integration doc §8 exactly, which reads better as a plain `validators.ts`. |
 | Fonts | Instrument Serif + IBM Plex Mono via `expo-font`. `theme/typography.ts` already named them but nothing loaded them, so no `fontFamily` was applied anywhere. |
@@ -124,6 +124,20 @@ hierarchical — invalidating `shops.all` also invalidates every filtered list a
 
 `useRefreshOnFocus(refetch)` covers the gap React Query doesn't: popping back to a screen that
 stayed mounted underneath a pushed one. It skips the first focus because mount already fetched.
+
+### Home count exception
+
+`src/features/home/useCounts.ts` reads `totalElements` from the one-row `shops` and `people`
+pages. Those two queries use the existing `queryKeys.shops.list(COUNT_ONLY)` and
+`queryKeys.people.list(COUNT_ONLY)` keys with `staleTime: Infinity`; they are fetched on the
+first Home load and then retained until an explicit action changes them. Home deliberately does
+not use `useRefreshOnFocus`.
+
+Pull-to-refresh and Home's error retry call both hooks' `refetch()` functions. Shop
+create/delete invalidates the shop count; member create/delete invalidates the member count.
+The broad list/detail invalidations used by other writes exclude these count entries, so a link
+or edit cannot incidentally refetch a Home total. A shop registration with an inline new owner
+also invalidates the people count because it creates a person.
 
 ---
 

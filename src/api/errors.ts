@@ -28,6 +28,8 @@ export const SERVER_ERROR_CODES = [
   "otp_expired", // 400 · code past its TTL
   "otp_attempts_exhausted", // 400 · too many wrong codes for this request
   "otp_throttled", // 429 · resend requested inside the 60s window
+  "otp_send_failed", // 502 · email provider could not deliver the code
+  "no_email_on_file", // 409 · committee member has no deliverable email address
 
   // --- shops ----------------------------------------------------------------
   "duplicate_shop_number", // 409 · taken among active shops (case-insensitive)
@@ -50,6 +52,8 @@ export const SERVER_ERROR_CODES = [
 
   // --- committee ------------------------------------------------------------
   "committee_not_found", // 404
+  "duplicate_email", // 409 · address taken among active committee members
+  "nothing_to_update", // 400 · empty committee PATCH body
   "self_action", // 400 · cannot change or remove yourself
   "last_admin", // 400 · cannot remove/demote the last active admin
 
@@ -155,12 +159,15 @@ const OVERRIDE_MESSAGES: Partial<Record<ErrorCode, string>> = {
   wrong_pin: "Wrong M-PIN.",
   pin_locked: "Locked after too many attempts. Try again later or reset your M-PIN.",
   duplicate_phone: "A member with this phone number already exists.",
+  duplicate_email: "This email is already used by another active committee member.",
   duplicate_shop_number: "A shop with this number already exists.",
   renter_exists: "This shop already has a renter.",
   already_linked: "This person is already linked to this shop.",
   owner_not_addable: "The licence holder is set through registration or transfer.",
   owner_not_removable: "The licence holder is changed through Transfer licence.",
   otp_throttled: "Please wait a moment before requesting another code.",
+  otp_send_failed: "Couldn't send the code, please try again.",
+  no_email_on_file: "No email address is registered for this number. Please contact the treasurer.",
   forbidden: "You don't have permission for this.",
   aadhaar_missing: "That side of the Aadhaar card hasn't been captured yet.",
   // The user can't fix a mis-wired field, but retaking produces a fresh key in the right

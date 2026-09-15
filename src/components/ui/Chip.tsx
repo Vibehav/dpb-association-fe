@@ -6,13 +6,14 @@ type ChipProps = {
   label: string;
   selected?: boolean;
   onPress?: () => void;
+  disabled?: boolean;
 };
 
 /** A filter chip. Also used read-only (no `onPress`) for role and status tags. */
-export function Chip({ label, selected, onPress }: ChipProps) {
+export function Chip({ label, selected, onPress, disabled = false }: ChipProps) {
   const body = (
-    <View style={[styles.chip, selected && styles.selected]}>
-      <Text style={[styles.label, selected && styles.labelSelected]}>{label}</Text>
+    <View style={[styles.chip, selected && styles.selected, disabled && styles.disabled]}>
+      <Text style={[styles.label, selected && styles.labelSelected, disabled && styles.labelDisabled]}>{label}</Text>
     </View>
   );
 
@@ -21,8 +22,9 @@ export function Chip({ label, selected, onPress }: ChipProps) {
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole="button"
-      accessibilityState={{ selected: Boolean(selected) }}
+      accessibilityState={{ disabled, selected: Boolean(selected) }}
       hitSlop={6}
     >
       {body}
@@ -55,6 +57,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card
   },
   selected: { backgroundColor: colors.primary, borderColor: colors.primary },
+  disabled: { opacity: 0.55 },
   label: { fontSize: 12, color: colors.secondaryText },
-  labelSelected: { color: colors.white }
+  labelSelected: { color: colors.white },
+  labelDisabled: { color: colors.muted }
 });

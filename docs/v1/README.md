@@ -29,6 +29,7 @@ the per-phase detail.
 | [10](10-design-review-fixes.md) | Design review fixes | Prototype-vs-build pass: the Home reload loop, register-shop fields, the inline pickers, and two fields deliberately not built. |
 | [11](11-development-build.md) | Development & production builds | Leaving Expo Go: what must be fixed first, EAS vs local, and free-form Aadhaar cropping. |
 | [12](12-open-gaps.md) | Open gaps | Known omissions and unverified areas, incl. the missing Aadhaar capture attribution. |
+| [15](15-email-otp.md) | Email OTP migration | Current email-delivery API addendum, UI requirements, and retired SMS/dev-console guidance. |
 | [14](14-handoff.md) | **Handoff** | **Read first.** Current state, next steps, non-negotiable rules, and false alarms. |
 | [13](13-bug-log.md) | **Bug log** | Every bug found, its cause, its fix, and whether a test guards it. **Append here as new ones turn up.** |
 

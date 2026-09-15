@@ -23,6 +23,7 @@ Three documents govern this repo, in order of authority for engineering question
 | **`docs/v1/14-handoff.md`** | **Start here.** Current state, next steps, and what looks broken but isn't. |
 | `docs/v1/` | The build record, one file per phase — what was decided, what was built, how it was proved, and what isn't covered. Start at `docs/v1/README.md`. |
 | `docs/v1-implementation-plan.md` | The plan: cross-cutting decisions, the phase breakdown, resolved questions, and the invariants not to regress. |
+| `docs/v1/15-email-otp.md` | The current email-OTP API addendum, retained legacy guidance, and remaining client work. |
 | `docs/Market Association Record App/` | The functional spec and the interactive prototype — the visual reference. |
 
 Where the spec and the integration doc disagree, the integration doc wins; where the
@@ -52,6 +53,16 @@ Before calling this shippable, read
 exactly what has and hasn't been proved. Also still to do: delete the `__DEV__` media harness at
 `src/features/dev/`.
 
+### Email OTP migration
+
+> ⚠️ **Removed / superseded:** any README or historic v1-document instruction to use SMS or
+> read a `DEV OTP` code from the API console.
+
+First-login and M-PIN-reset codes are now emailed. Committee email creation/editing, email
+display, and masked OTP destinations are implemented; the remaining client work is explicit
+handling for `otp_send_failed` and `no_email_on_file`, plus a spam-folder hint. See
+[`docs/v1/15-email-otp.md`](docs/v1/15-email-otp.md).
+
 ## Architecture
 
 ```
@@ -71,8 +82,10 @@ App.tsx → AppProviders (fonts · safe area · query cache · auth) → RootNav
 - **`src/auth/`** — `AuthContext` owns **tokens and the app-lock only**. The user's name and role
   come from `GET /me` via `useMe()`, refetched on every screen focus, because the API re-derives
   the role from the database per request and a mid-session demotion has to land immediately.
-- **`src/app/`** — the query client (`staleTime: 0`, no retry on 4xx, no retry on mutations) and
-  every query key in one place so invalidation is a lookup, not a guess.
+- **`src/app/`** — the query client (`staleTime: 0` by default, no retry on 4xx, no retry on
+  mutations) and every query key in one place so invalidation is a lookup, not a guess. Home's
+  shop/member totals are the deliberate exception: they use `staleTime: Infinity` and refresh
+  only on pull-to-refresh or the relevant successful create/delete mutation.
 - **`src/features/<area>/`** — screens and hooks per feature area.
 - **`src/components/ui/`** — the shared primitives. 44px minimum touch targets throughout.
 - **`src/theme/`** — the prototype's palette, plus Instrument Serif and IBM Plex Mono.
@@ -125,8 +138,15 @@ docker compose up -d      # Postgres 16 + MinIO
 Needs Java 21 and Docker. Postgres on `localhost:5432` (db/user/pass all `dpb`); MinIO API on
 `:9000`, console on `:9001` (`minioadmin`/`minioadmin`).
 
-The seeded first admin is **8451963620** with no PIN set. Sign in, request the first-login code,
-and read the `DEV OTP` line from the API's console — there is no SMS provider in dev.
+The seeded first admin is **8451963620** with no PIN set.
+
+> ⚠️ **Removed / superseded — do not follow:** “request the first-login code, and read the
+> `DEV OTP` line from the API's console — there is no SMS provider in dev.” This described the
+> pre-email OTP delivery path.
+
+**Current OTP delivery:** first-login and M-PIN-reset codes are emailed to the committee
+member's registered address. The app shows a masked destination address on the OTP screen.
+See [`docs/v1/15-email-otp.md`](docs/v1/15-email-otp.md) for the current frontend handoff.
 
 ## Notes for production
 

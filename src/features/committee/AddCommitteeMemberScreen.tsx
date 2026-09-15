@@ -6,35 +6,49 @@ import { Banner, Button, Card, Chip, ChipRow, Field, PhoneField, Screen } from "
 import type { AppStackParamList } from "../../navigation/types";
 import { spacing, typography } from "../../theme";
 import { normalisePhone } from "../../utils/phone";
-import { firstError, validateName, validatePhone } from "../../utils/validators";
+import { firstError, validateEmail, validateName, validatePhone } from "../../utils/validators";
 import { useAddCommitteeMember } from "./hooks";
 
 type Props = NativeStackScreenProps<AppStackParamList, "AddCommitteeMember">;
 
-const ROLES: { value: Role; label: string; description: string }[] = [
+const ROLES: { value: Role; label: string; description: string[] }[] = [
   {
     value: "COLLECTOR",
     label: "Collector",
-    description:
-      "Registers and edits shops and members, and captures photos and Aadhaar copies. Cannot open a stored Aadhaar image, transfer a licence, or delete anything."
+    description: [
+      "Registers and edits shops and members",
+      "Captures photos and Aadhaar copies",
+      "Cannot open a stored Aadhaar image",
+      "Cannot transfer a licence",
+      "Cannot delete anything"
+    ]
   },
   {
     value: "ADMIN",
     label: "Admin",
-    description:
-      "Everything a collector can, plus opening Aadhaar images, transferring licences, deleting records, and managing the committee."
+    description: [
+      "Can do everything in the register",
+      "Can open Aadhaar images",
+      "Can transfer licences",
+      "Can delete records",
+      "Can manage the committee"
+    ]
   },
   {
     value: "VIEWER",
     label: "Viewer",
-    description: "Reads the register only. Cannot add or change anything, or open Aadhaar images."
+    description: [
+      "Reads the register only",
+      "Cannot add or change anything",
+      "Cannot open Aadhaar images"
+    ]
   }
 ];
 
 /**
  * Add someone who can sign in (integration doc §5.10).
  *
- * Name, number and role only — **the admin never sets a PIN.** The member is created with
+ * Name, number, email and role — **the admin never sets a PIN.** The member is created with
  * `pinSet: false` and walks through the first-login OTP flow themselves the first time they
  * open the app. That's the whole onboarding path; there is no invite to send.
  */
@@ -43,23 +57,30 @@ export function AddCommitteeMemberScreen({ navigation }: Props) {
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("COLLECTOR");
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   async function submit() {
-    const message = firstError(validateName(name), validatePhone(phone));
+    const message = firstError(validateName(name), validatePhone(phone), validateEmail(email));
     setFormError(message);
     setPhoneError(null);
+    setEmailError(null);
     if (message) return;
 
     try {
-      await add.mutateAsync({ name: name.trim(), phone: normalisePhone(phone), role });
+      await add.mutateAsync({ name: name.trim(), phone: normalisePhone(phone), email: email.trim(), role });
       navigation.goBack();
     } catch (caught) {
       // The API's uniqueness is among *active* members, so a freed number is fine to reuse.
       if (isCode(caught, "duplicate_phone")) {
         setPhoneError("This number is already on the committee.");
+        return;
+      }
+      if (isCode(caught, "duplicate_email")) {
+        setEmailError("This email is already used by another active committee member.");
         return;
       }
       setFormError(errorMessage(caught));
@@ -73,10 +94,11 @@ export function AddCommitteeMemberScreen({ navigation }: Props) {
       <Card>
         <Field
           label="Full name"
-          placeholder="Their name"
+          placeholder="Vinod Kumar"
           value={name}
           onChangeText={setName}
-          autoCapitalize="words"
+          autoCorrect={true}
+          uppercase
         />
         <PhoneField
           label="Mobile number"
@@ -86,6 +108,19 @@ export function AddCommitteeMemberScreen({ navigation }: Props) {
             setPhoneError(null);
           }}
           error={phoneError}
+        />
+        <Field
+          label="Email address"
+          placeholder="name@example.com"
+          value={email}
+          onChangeText={(next) => {
+            setEmail(next);
+            setEmailError(null);
+          }}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+          error={emailError}
         />
       </Card>
 
@@ -101,7 +136,15 @@ export function AddCommitteeMemberScreen({ navigation }: Props) {
             />
           ))}
         </ChipRow>
-        {selected ? <Text style={typography.body}>{selected.description}</Text> : null}
+        {selected ? (
+          <View style={styles.description}>
+            {selected.description.map((item) => (
+              <Text key={item} style={typography.body}>
+                • {item}
+              </Text>
+            ))}
+          </View>
+        ) : null}
       </Card>
 
       <View style={styles.note}>
@@ -125,5 +168,6 @@ export function AddCommitteeMemberScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  note: { marginTop: spacing.xs }
+  note: { marginTop: spacing.xs },
+  description: { marginTop: spacing.xs, gap: spacing.xs }
 });

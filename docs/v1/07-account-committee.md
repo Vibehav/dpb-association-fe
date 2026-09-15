@@ -101,6 +101,10 @@ A prominent notice: *"You don't set their M-PIN. They'll be sent a one-time code
 their own the first time they sign in."* That is the entire onboarding path (api slice 5,
 "Option B") — there is no invite to send, and no OTP is pushed on add.
 
+> ⚠️ **Removed / superseded delivery ambiguity:** “sent a one-time code” must now mean emailed
+> to the required committee email address. The administrator can view and correct that address
+> from the committee member sheet; see [15-email-otp.md](15-email-otp.md).
+
 `409 duplicate_phone` becomes an inline field error. Uniqueness is among **active** rows, so a
 freed number is legitimately re-addable.
 

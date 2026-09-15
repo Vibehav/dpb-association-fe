@@ -7,6 +7,7 @@ import {
   validateAadhaarLast4,
   validateBusinessName,
   validateConsent,
+  validateEmail,
   validateLane,
   validateLinks,
   validateName,
@@ -38,6 +39,19 @@ describe("phone — exactly 10 digits", () => {
     ok(validateWhatsApp(""));
     ok(validateWhatsApp("9820000000"));
     fails(validateWhatsApp("12345"));
+  });
+});
+
+describe("committee email — required and well-formed", () => {
+  it("accepts a normal email address", () => {
+    ok(validateEmail("meera@example.com"));
+    ok(validateEmail("  meera@example.com  "));
+  });
+
+  it("rejects blank and malformed addresses", () => {
+    fails(validateEmail(""));
+    fails(validateEmail("meera"));
+    fails(validateEmail("meera@example"));
   });
 });
 

@@ -36,7 +36,7 @@ describe("usePermissions", () => {
     });
   });
 
-  it("lets a collector write but never view an Aadhaar or manage the committee", async () => {
+  it("lets a collector write but never view an ID proof or manage the committee", async () => {
     const p = await asRole("COLLECTOR");
     expect(p).toMatchObject({
       role: "COLLECTOR",

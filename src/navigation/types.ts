@@ -35,6 +35,8 @@ export type AppStackParamList = {
   ShopTransfer: { shopId: string };
   PersonProfile: { personId: string };
   PersonEdit: { personId: string };
+  /** Swap the whole ID proof — the only way to change its type. Admin or collector. */
+  IdProofReplace: { personId: string };
   /** Standalone add — opens on the search sheet, not the form. */
   AddMember: undefined;
   /** Your own M-PIN: OTP → new PIN, the same flow as a forgotten one. */

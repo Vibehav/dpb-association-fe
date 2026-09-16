@@ -65,12 +65,19 @@ image, so it is safe to show every role. Only the image itself is admin-only.
 
 ## 2. Not yet verified
 
-- **Component/layout tests missing.** 97 unit and hook tests exist; nothing renders a screen
-  except `AadhaarPanel`. See [13 § Still unguarded](13-bug-log.md).
+- **Component/layout coverage is thin, though no longer absent.** 139 tests across 14 suites.
+  Four render something: `IdProofPanel`, `IdProofReplaceScreen`, `MemberForm` and `Field`. The
+  shop and list screens still render nowhere. See [13 § Still unguarded](13-bug-log.md).
+- **Nothing in the ID-proof refactor has run against a live API.** Every test mocks `peopleApi`,
+  so the new payload shape, the renamed endpoints, the `id-proofs/` keys and the two `PUT`s are
+  verified only against a reading of the backend source. The API work is also still on the
+  unmerged `feature/IdProof_Refactor`. This is the largest unverified surface in v1.
 - **Viewer role never exercised on a device.** Collector has been (and looked correct);
   `Vishal Again` (9700000001) is an active VIEWER with `pinSet: false`, ready for first-login.
 - **iOS never run at all, and now less certain.** Every session has been Android, and the app
-  now depends on `react-native-image-crop-picker`, whose iOS path is untested here.
+  now depends on `react-native-image-crop-picker`, whose iOS path is untested here. That library
+  is on the critical path for **every** ID-proof capture across all five document types, so this
+  is unproven ground rather than a polish item if iOS is in scope.
 
 ---
 
@@ -98,6 +105,38 @@ image, so it is safe to show every role. Only the image itself is admin-only.
 - **Seed data was mutated during testing.** Ramesh Patil's photo and Aadhaar front are the
   association logo.
 - **`.idea/dpb-association-fe.iml`** is untracked IntelliJ noise; belongs in `.gitignore`.
+
+---
+
+## 4a. ID-proof access log — endpoint exists, screen not built (**deferred, 2026-09-17**)
+
+`fe-handoff-id-proof-followups.md` §2 shipped `GET /people/{id}/id-proof/log`, admin-only. It
+answers the question §1 of this document says the client *cannot* answer — who viewed or
+re-captured a member's ID proof, and when. **Nothing consumes it yet.**
+
+```jsonc
+[{ "action": "RECAPTURE", "side": null, "idProofType": "PAN",
+   "previousIdProofType": "PASSPORT", "actorName": "Ishwar",
+   "accessedAt": "2026-09-16T17:12:04.918Z" }]
+```
+
+To build it: a `peopleApi.idProofLog` method, the row type, a `useIdProofLog` hook, a list
+screen behind a "View access history" action on `IdProofPanel`, and a route. Self-contained —
+it touches nothing that already works.
+
+Three details from the hand-off worth not rediscovering:
+
+- `side: null` means *the whole document was replaced*, not an unknown side. Don't render
+  "replaced the null side".
+- `previousIdProofType` is non-null **only when a replace actually changed the type**, and it
+  is the one place a document swap is visible. Use it as the signal for a "Passport → PAN"
+  second line.
+- Reading the log does **not** itself write a log entry, so opening the screen is free. There
+  is no pagination; a single member's log is small.
+
+**Note this only partly closes §1 above.** The log names who *touched* the image, so "last
+re-captured by X" becomes answerable. It still does not give the profile a per-side
+"captured by / when" pair, which is what §1 asks for — that remains an API-side gap.
 
 ---
 

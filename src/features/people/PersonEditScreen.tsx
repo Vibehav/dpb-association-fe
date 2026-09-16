@@ -13,7 +13,7 @@ type Props = NativeStackScreenProps<AppStackParamList, "PersonEdit">;
 /**
  * Edit a member's contact details — `PATCH /people/{id}` (integration doc §5.8).
  *
- * Photo and Aadhaar are replaced from the profile, not here, because each is its own
+ * Photo and ID proof are replaced from the profile, not here, because each is its own
  * capture-and-upload flow.
  */
 export function PersonEditScreen({ navigation, route }: Props) {

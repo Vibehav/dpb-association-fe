@@ -6,11 +6,11 @@ import { usePermissions } from "../../../auth/usePermissions";
 import { Banner, Button, Card } from "../../../components/ui";
 import { useImageCapture } from "../../../media";
 import { colors, radii, spacing, typography } from "../../../theme";
-import { formatDate } from "../../../utils/format";
+import { formatDate, idProofLabel, idProofSummary } from "../../../utils/format";
 import { useIdProofUrl, useRecaptureIdProofSide } from "../hooks";
 
 /**
- * Aadhaar on file — the strictest data in the app (integration doc §9, spec §4.3).
+ * ID proof on file — the strictest data in the app (integration doc §9, spec §4.3).
  *
  * - **Admin**: can open a stored image. Every view is logged server-side against them.
  * - **Collector**: may re-capture an unclear copy but can **never** view one. The endpoint
@@ -22,18 +22,47 @@ import { useIdProofUrl, useRecaptureIdProofSide } from "../hooks";
  * the bytes are never fetched, so it renders as an explicit locked placeholder instead —
  * which is the same intent, more honestly.
  */
-export function AadhaarPanel({ person }: { person: PersonProfile }) {
-  const { isAdmin, canWrite } = usePermissions();
+export function IdProofPanel({
+  person,
+  onReplace
+}: {
+  person: PersonProfile;
+  /** Opens the whole-document replace flow. Omitted in tests that don't exercise it. */
+  onReplace?: () => void;
+}) {
+  const { canChangeIdProofType, canViewIdProof, canWrite } = usePermissions();
+
+  // Held here rather than in each SideCard so a replace can collapse both at once — the
+  // signed URLs behind them are removed from cache and their objects queued for deletion.
+  const [revealed, setRevealed] = useState<Record<IdProofSide, boolean>>({
+    FRONT: false,
+    BACK: false
+  });
+
+  // A replaced document invalidates whatever is on screen. Collapse rather than refetch:
+  // a refetch here would be an audit row the admin never asked for.
+  useEffect(() => {
+    setRevealed({ FRONT: false, BACK: false });
+  }, [person.idProofType, person.idProofLast4]);
 
   return (
     <Card>
-      <Text style={typography.eyebrow}>Aadhaar on file</Text>
+      <Text style={typography.eyebrow}>ID proof on file</Text>
 
-      <Text style={typography.body}>
-        {person.idProofLast4
-          ? `Ends in ${person.idProofLast4}`
-          : "Last four digits not recorded."}
+      <Text
+        style={typography.body}
+        // "••••4567" is read out as four bullet glyphs by TalkBack and VoiceOver.
+        accessibilityLabel={
+          person.idProofLast4
+            ? `${idProofLabel(person.idProofType)}, ending ${person.idProofLast4}`
+            : idProofLabel(person.idProofType)
+        }
+      >
+        {idProofSummary(person.idProofType, person.idProofLast4)}
       </Text>
+      {person.idProofLast4 ? null : (
+        <Text style={typography.bodySmall}>Last four characters not recorded.</Text>
+      )}
       {/*
        * This is the *member record's* added-by/added-on, not the current image's.
        *
@@ -43,26 +72,66 @@ export function AadhaarPanel({ person }: { person: PersonProfile }) {
        * to read "Captured by Ishwar", which actively misattributed the image.
        *
        * Every re-capture *is* recorded server-side in `id_proof_access_log` with actor, side
-       * and timestamp — but no endpoint exposes it, so it can't be shown here. Displaying
-       * "last captured by X" needs the API to surface it (see 12-open-gaps.md).
+       * and timestamp — a full replace logs `side = null`, meaning the whole document, and
+       * the type is denormalised onto the row so the history survives a document swap. But
+       * no endpoint exposes any of it, so it can't be shown here. Displaying "last captured
+       * by X" needs the API to surface it (see 12-open-gaps.md).
        */}
       <Text style={typography.bodySmall}>
         Member added by {person.addedByName ?? "unknown"} · {formatDate(person.addedOn)}
       </Text>
 
-      {!isAdmin ? (
+      {!canViewIdProof ? (
         <Banner
           tone="notice"
           message={
             canWrite
-              ? "Aadhaar images are visible to the admin only. You can replace an unclear copy, but not open it."
-              : "Aadhaar images are visible to the admin only."
+              ? "ID proof is visible to the admin only. You can replace an unclear copy, but not open it."
+              : "ID proof is visible to the admin only."
           }
         />
       ) : null}
 
-      <SideCard personId={person.id} side="FRONT" isAdmin={isAdmin} canWrite={canWrite} />
-      <SideCard personId={person.id} side="BACK" isAdmin={isAdmin} canWrite={canWrite} />
+      <SideCard
+        personId={person.id}
+        side="FRONT"
+        canView={canViewIdProof}
+        canWrite={canWrite}
+        revealed={revealed.FRONT}
+        onToggle={() => setRevealed((r) => ({ ...r, FRONT: !r.FRONT }))}
+      />
+      <SideCard
+        personId={person.id}
+        side="BACK"
+        canView={canViewIdProof}
+        canWrite={canWrite}
+        revealed={revealed.BACK}
+        onToggle={() => setRevealed((r) => ({ ...r, BACK: !r.BACK }))}
+      />
+
+      {canChangeIdProofType && onReplace ? (
+        <View style={styles.replace}>
+          <Button
+            label="Change document type"
+            variant="secondary"
+            icon="swap-horizontal-outline"
+            onPress={onReplace}
+          />
+          <Text style={typography.bodySmall}>
+            Use this when the member presents a different document. Re-capture above just
+            re-shoots the same one.
+          </Text>
+        </View>
+      ) : canWrite ? (
+        // A collector can re-shoot either side but cannot move the `type` — that is an
+        // admin act now. Say what to do next: someone standing in front of a member holding
+        // a new passport needs the escalation path, not silence.
+        <View style={styles.replace}>
+          <Text style={typography.bodySmall}>
+            Presenting a different document? Ask an admin to change the document type.
+          </Text>
+        </View>
+      ) : null}
     </Card>
   );
 }
@@ -70,17 +139,20 @@ export function AadhaarPanel({ person }: { person: PersonProfile }) {
 function SideCard({
   personId,
   side,
-  isAdmin,
-  canWrite
+  canView,
+  canWrite,
+  revealed,
+  onToggle
 }: {
   personId: string;
   side: IdProofSide;
-  isAdmin: boolean;
+  canView: boolean;
   canWrite: boolean;
+  revealed: boolean;
+  onToggle: () => void;
 }) {
-  const [revealed, setRevealed] = useState(false);
   // Enabled only for an admin who has explicitly asked. Never prefetched.
-  const signed = useIdProofUrl(personId, side, isAdmin && revealed);
+  const signed = useIdProofUrl(personId, side, canView && revealed);
   const capture = useImageCapture(side === "FRONT" ? "ID_PROOF_FRONT" : "ID_PROOF_BACK");
   const update = useRecaptureIdProofSide(personId);
 
@@ -89,8 +161,11 @@ function SideCard({
     const key = capture.key;
     if (!key) return;
     capture.clear();
+    // Collapse *before* the mutation settles. `removeQueries` on a still-enabled query
+    // triggers an immediate refetch, and that refetch is a VIEW row nobody asked for.
+    // This line is load-bearing, not cosmetic.
+    if (revealed) onToggle();
     update.mutate({ side, key });
-    setRevealed(false);
   }, [capture.key]);
 
   const label = side === "FRONT" ? "Front" : "Back";
@@ -100,7 +175,7 @@ function SideCard({
     <View style={styles.side}>
       <Text style={typography.eyebrow}>{label}</Text>
 
-      {isAdmin && revealed ? (
+      {canView && revealed ? (
         signed.isPending ? (
           <View style={styles.frame}>
             <ActivityIndicator color={colors.primary} />
@@ -121,13 +196,13 @@ function SideCard({
       )}
 
       <View style={styles.actions}>
-        {isAdmin ? (
+        {canView ? (
           <View style={styles.action}>
             <Button
               label={revealed ? "Hide" : `View ${label.toLowerCase()}`}
               variant="secondary"
               icon={revealed ? "eye-off-outline" : "eye-outline"}
-              onPress={() => setRevealed(!revealed)}
+              onPress={onToggle}
             />
           </View>
         ) : null}
@@ -163,6 +238,8 @@ const styles = StyleSheet.create({
     justifyContent: "center"
   },
   locked: { gap: spacing.xs },
+  // Separated from the per-side actions above, because its scope is the whole document.
+  replace: { gap: spacing.sm, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
   actions: { flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" },
   action: { flexGrow: 1, flexBasis: 130 }
 });

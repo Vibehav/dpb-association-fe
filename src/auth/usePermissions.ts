@@ -22,6 +22,15 @@ export type Permissions = {
   isAdmin: boolean;
   /** Open a stored ID-proof image. Admin only, and every view is logged server-side. */
   canViewIdProof: boolean;
+  /**
+   * Change *which* document is on file (`PUT /id-proof`). Admin only.
+   *
+   * Distinct from `canWrite` on purpose: a collector may still re-take an unclear image via
+   * `PUT /id-proof/{side}`, which is what spec §4.3 scopes them to. Swapping a passport for
+   * a PAN card changes what the register asserts about someone's identity, so it sits with
+   * transfers and deletions.
+   */
+  canChangeIdProofType: boolean;
   /** Add, re-role, reset-PIN and remove committee members. */
   canManageCommittee: boolean;
 };
@@ -39,6 +48,7 @@ export function usePermissions(): Permissions {
     canWrite,
     isAdmin,
     canViewIdProof: isAdmin,
+    canChangeIdProofType: isAdmin,
     canManageCommittee: isAdmin
   };
 }

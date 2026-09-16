@@ -17,8 +17,8 @@ const ROLES: { value: Role; label: string; description: string[] }[] = [
     label: "Collector",
     description: [
       "Registers and edits shops and members",
-      "Captures photos and Aadhaar copies",
-      "Cannot open a stored Aadhaar image",
+      "Captures photos and ID-proof copies",
+      "Cannot open a stored ID-proof image",
       "Cannot transfer a licence",
       "Cannot delete anything"
     ]
@@ -28,7 +28,7 @@ const ROLES: { value: Role; label: string; description: string[] }[] = [
     label: "Admin",
     description: [
       "Can do everything in the register",
-      "Can open Aadhaar images",
+      "Can open ID-proof images",
       "Can transfer licences",
       "Can delete records",
       "Can manage the committee"
@@ -40,7 +40,7 @@ const ROLES: { value: Role; label: string; description: string[] }[] = [
     description: [
       "Reads the register only",
       "Cannot add or change anything",
-      "Cannot open Aadhaar images"
+      "Cannot open ID-proof images"
     ]
   }
 ];

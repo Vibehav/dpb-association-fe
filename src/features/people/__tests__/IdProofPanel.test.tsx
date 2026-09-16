@@ -1,8 +1,8 @@
 /**
- * The security invariant: **the Aadhaar endpoint is never called for a non-admin.**
+ * The security invariant: **the ID-proof endpoint is never called for a non-admin.**
  *
  * Not "called and the 403 is handled" — not called at all. Every successful call writes a
- * VIEW row to `aadhaar_access_log` against the acting user, and a collector must be unable
+ * VIEW row to `id_proof_access_log` against the acting user, and a collector must be unable
  * to reach the image at all (spec §4.3, integration doc §9).
  *
  * The server refuses them anyway; this asserts the client never asks, and that the
@@ -14,7 +14,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { peopleApi, type PersonProfile } from "../../../api";
 import { usePermissions } from "../../../auth/usePermissions";
 import { testQueryClient, withQueryClient } from "../../../testing/render";
-import { AadhaarPanel } from "../components/AadhaarPanel";
+import { IdProofPanel } from "../components/IdProofPanel";
 
 jest.mock("../../../auth/usePermissions");
 
@@ -60,6 +60,7 @@ function asRole(role: "ADMIN" | "COLLECTOR" | "VIEWER") {
     canWrite,
     isAdmin,
     canViewIdProof: isAdmin,
+    canChangeIdProofType: isAdmin,
     canManageCommittee: isAdmin
   });
 }
@@ -80,9 +81,16 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-const renderPanel = () => render(<AadhaarPanel person={person} />, { wrapper: withQueryClient(client) });
+let onReplace: jest.Mock;
 
-describe("AadhaarPanel — collector", () => {
+const renderPanel = (overrides: Partial<PersonProfile> = {}) => {
+  onReplace = jest.fn();
+  return render(<IdProofPanel person={{ ...person, ...overrides }} onReplace={onReplace} />, {
+    wrapper: withQueryClient(client)
+  });
+};
+
+describe("IdProofPanel — collector", () => {
   beforeEach(() => asRole("COLLECTOR"));
 
   it("offers no way to view the image, and never calls the endpoint", async () => {
@@ -106,7 +114,7 @@ describe("AadhaarPanel — collector", () => {
   });
 });
 
-describe("AadhaarPanel — viewer", () => {
+describe("IdProofPanel — viewer", () => {
   beforeEach(() => asRole("VIEWER"));
 
   it("can neither view nor re-capture, and never calls the endpoint", async () => {
@@ -118,7 +126,7 @@ describe("AadhaarPanel — viewer", () => {
   });
 });
 
-describe("AadhaarPanel — admin", () => {
+describe("IdProofPanel — admin", () => {
   beforeEach(() => asRole("ADMIN"));
 
   it("does not fetch the image until it is explicitly asked for", async () => {
@@ -130,15 +138,72 @@ describe("AadhaarPanel — admin", () => {
   it("fetches exactly one side when that side's View is pressed", async () => {
     const { getByText } = await renderPanel();
 
-    fireEvent.press(getByText("View front"));
+    await fireEvent.press(getByText("View front"));
 
     await waitFor(() => expect(idProofUrl).toHaveBeenCalledTimes(1));
     expect(idProofUrl).toHaveBeenCalledWith("p1", "FRONT");
   });
 });
 
-describe("AadhaarPanel — metadata shown to everyone", () => {
-  it("shows the last four digits, since only the image is restricted", async () => {
+describe("IdProofPanel — changing which document is on file", () => {
+  it("does not offer it to a collector, whose PUT would now 403", async () => {
+    asRole("COLLECTOR");
+    const { queryByText, getByText, getAllByText } = await renderPanel();
+
+    // Spec §4.3 scopes a collector to re-capturing an unclear copy. Moving the *type*
+    // changes what the register asserts about someone's identity, so it is an admin act.
+    expect(queryByText("Change document type")).toBeNull();
+    // But they still get the escalation path, not silence.
+    expect(getByText(/Ask an admin to change the document type/i)).toBeTruthy();
+    // And re-capture is still theirs — one button per side.
+    expect(getAllByText("Re-capture")).toHaveLength(2);
+  });
+
+  it("does not offer it to a viewer, nor the collector's hint", async () => {
+    asRole("VIEWER");
+    const { queryByText } = await renderPanel();
+    expect(queryByText("Change document type")).toBeNull();
+    expect(queryByText(/Ask an admin/i)).toBeNull();
+  });
+
+  it("offers it to an admin without fetching the stored image", async () => {
+    asRole("ADMIN");
+    const { getByText } = await renderPanel();
+
+    await fireEvent.press(getByText("Change document type"));
+
+    expect(onReplace).toHaveBeenCalled();
+    // The replace screen shows capture slots, not the document on file.
+    expect(idProofUrl).not.toHaveBeenCalled();
+  });
+});
+
+describe("IdProofPanel — metadata shown to everyone", () => {
+  it("names the document type rather than assuming Aadhaar", async () => {
+    asRole("COLLECTOR");
+    // PASSPORT deliberately: the type must come from the record, not a hard-coded string.
+    const { getByText, queryByText } = await renderPanel({
+      idProofType: "PASSPORT",
+      idProofLast4: "4567"
+    });
+
+    expect(getByText("PASSPORT ••••4567")).toBeTruthy();
+    expect(queryByText(/Aadhaar/i)).toBeNull();
+  });
+
+  it("shows the type alone when no last four is on file", async () => {
+    asRole("COLLECTOR");
+    const { getByText, queryByText } = await renderPanel({
+      idProofType: "VOTER_ID",
+      idProofLast4: null
+    });
+
+    expect(getByText("VOTER ID")).toBeTruthy();
+    expect(getByText(/Last four characters not recorded/i)).toBeTruthy();
+    expect(queryByText(/••••/)).toBeNull();
+  });
+
+  it("shows the last four, since only the image is restricted", async () => {
     asRole("COLLECTOR");
     const { getByText } = await renderPanel();
     expect(getByText(/1234/)).toBeTruthy();

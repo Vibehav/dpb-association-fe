@@ -44,9 +44,9 @@ export function ShopFormScreen({ navigation, route }: Props) {
   const shopId = route.params?.shopId;
   const editing = Boolean(shopId);
 
-  const existing = useShop(shopId ?? "");
+  const existing = useShop(shopId ?? 0);
   const register = useRegisterShop();
-  const update = useUpdateShop(shopId ?? "");
+  const update = useUpdateShop(shopId ?? 0);
 
   const [step, setStep] = useState<"shop" | "owner">("shop");
   const [shopNumber, setShopNumber] = useState("");

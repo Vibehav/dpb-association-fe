@@ -1,13 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
+import type { Id } from "../../../api";
 import { Banner, Button } from "../../../components/ui";
 import { useImageCapture } from "../../../media";
 import { colors, radii, spacing, typography } from "../../../theme";
 import { useUpdatePhoto } from "../hooks";
 
 type Props = {
-  personId: string;
+  personId: Id;
   /** Short-lived signed URL from the profile response — safe to use directly. */
   photoUrl: string | null;
   canRetake: boolean;

@@ -32,29 +32,29 @@ describe("re-capturing one side", () => {
   it("removes that side's signed URL rather than leaving it to be refetched", async () => {
     jest.spyOn(peopleApi, "updateIdProofSide").mockResolvedValue(undefined);
     client = testQueryClient();
-    client.setQueryData(queryKeys.people.idProof("p1", "FRONT"), signed);
+    client.setQueryData(queryKeys.people.idProof(1, "FRONT"), signed);
 
-    const { result } = await renderHook(() => useRecaptureIdProofSide("p1"), {
+    const { result } = await renderHook(() => useRecaptureIdProofSide(1), {
       wrapper: withQueryClient(client)
     });
     await result.current.mutateAsync({ side: "FRONT", key: "id-proofs/new.jpg" });
 
     // Gone, not merely stale — the object behind that URL is queued for deletion.
-    expect(client.getQueryData(queryKeys.people.idProof("p1", "FRONT"))).toBeUndefined();
+    expect(client.getQueryData(queryKeys.people.idProof(1, "FRONT"))).toBeUndefined();
   });
 
   it("leaves the other side alone, since only one image was superseded", async () => {
     jest.spyOn(peopleApi, "updateIdProofSide").mockResolvedValue(undefined);
     client = testQueryClient();
-    client.setQueryData(queryKeys.people.idProof("p1", "FRONT"), signed);
-    client.setQueryData(queryKeys.people.idProof("p1", "BACK"), signed);
+    client.setQueryData(queryKeys.people.idProof(1, "FRONT"), signed);
+    client.setQueryData(queryKeys.people.idProof(1, "BACK"), signed);
 
-    const { result } = await renderHook(() => useRecaptureIdProofSide("p1"), {
+    const { result } = await renderHook(() => useRecaptureIdProofSide(1), {
       wrapper: withQueryClient(client)
     });
     await result.current.mutateAsync({ side: "FRONT", key: "id-proofs/new.jpg" });
 
-    expect(client.getQueryData(queryKeys.people.idProof("p1", "BACK"))).toEqual(signed);
+    expect(client.getQueryData(queryKeys.people.idProof(1, "BACK"))).toEqual(signed);
   });
 });
 
@@ -62,16 +62,16 @@ describe("replacing the whole document", () => {
   it("removes BOTH sides, because an omitted backKey clears the back outright", async () => {
     jest.spyOn(peopleApi, "replaceIdProof").mockResolvedValue(undefined);
     client = testQueryClient();
-    client.setQueryData(queryKeys.people.idProof("p1", "FRONT"), signed);
-    client.setQueryData(queryKeys.people.idProof("p1", "BACK"), signed);
+    client.setQueryData(queryKeys.people.idProof(1, "FRONT"), signed);
+    client.setQueryData(queryKeys.people.idProof(1, "BACK"), signed);
 
-    const { result } = await renderHook(() => useReplaceIdProof("p1"), {
+    const { result } = await renderHook(() => useReplaceIdProof(1), {
       wrapper: withQueryClient(client)
     });
     await result.current.mutateAsync({ type: "PASSPORT", frontKey: "id-proofs/f.jpg" });
 
-    expect(client.getQueryData(queryKeys.people.idProof("p1", "FRONT"))).toBeUndefined();
-    expect(client.getQueryData(queryKeys.people.idProof("p1", "BACK"))).toBeUndefined();
+    expect(client.getQueryData(queryKeys.people.idProof(1, "FRONT"))).toBeUndefined();
+    expect(client.getQueryData(queryKeys.people.idProof(1, "BACK"))).toBeUndefined();
   });
 });
 
@@ -87,10 +87,10 @@ describe("bulk people invalidations", () => {
     const wrapper = withQueryClient(client);
 
     // An admin has the front revealed: the query is mounted and enabled.
-    await renderHook(() => useIdProofUrl("p1", "FRONT", true), { wrapper });
+    await renderHook(() => useIdProofUrl(1, "FRONT", true), { wrapper });
     await waitFor(() => expect(idProofUrl).toHaveBeenCalledTimes(1));
 
-    const { result } = await renderHook(() => useUpdatePhoto("p1"), { wrapper });
+    const { result } = await renderHook(() => useUpdatePhoto(1), { wrapper });
     await result.current.mutateAsync("photos/new.jpg");
 
     // Still one. The photo retake must not have touched the ID-proof query.

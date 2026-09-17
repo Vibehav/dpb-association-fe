@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
-import { peopleApi, type PersonListItem } from "../../api";
+import { type Id, peopleApi, type PersonListItem } from "../../api";
 import { queryKeys } from "../../app/queryKeys";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { colors, spacing, typography } from "../../theme";
@@ -11,7 +11,7 @@ import { PersonResultRow } from "./PersonResultRow";
 
 type Props = {
   onPick: (person: PersonListItem) => void;
-  excludeIds?: string[];
+  excludeIds?: Id[];
   placeholder?: string;
   autoFocus?: boolean;
 };

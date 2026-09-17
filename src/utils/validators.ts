@@ -7,6 +7,7 @@
  * functional spec §7.2 asks for).
  */
 
+import type { Id } from "../api";
 import { normalisePhone } from "./phone";
 
 export const OTP_LENGTH = 6;
@@ -86,7 +87,7 @@ export function validateConsent(consent: boolean) {
 // "upload failed" — a distinction the API now enforces via `media_not_uploaded`.
 
 /** Every new member needs at least one shop link, and it may not be an OWNER link. */
-export function validateLinks(links: { shopId: string; role: string }[]) {
+export function validateLinks(links: { shopId: Id; role: string }[]) {
   if (links.length === 0) return "Link the member to at least one shop with a role.";
   if (links.some((link) => link.role === "OWNER")) {
     return "The licence holder is set through shop registration or transfer.";

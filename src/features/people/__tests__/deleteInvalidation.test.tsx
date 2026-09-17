@@ -36,18 +36,18 @@ describe("useDeletePerson", () => {
     client = testQueryClient();
 
     client.setQueryData(queryKeys.people.list({}), emptyPage);
-    client.setQueryData(queryKeys.people.detail("p1"), { id: "p1", name: "Gone" });
-    client.setQueryData(queryKeys.people.idProof("p1", "FRONT"), { url: "…", expiresInSeconds: 300 });
+    client.setQueryData(queryKeys.people.detail(1), { id: 1, name: "Gone" });
+    client.setQueryData(queryKeys.people.idProof(1, "FRONT"), { url: "…", expiresInSeconds: 300 });
     client.setQueryData(queryKeys.shops.list({}), emptyPage);
 
     const { result } = await renderHook(() => useDeletePerson(), { wrapper: withQueryClient(client) });
-    await result.current.mutateAsync("p1");
+    await result.current.mutateAsync(1);
 
     await waitFor(() => expect(invalidated(client, queryKeys.people.list({}))).toBe(true));
 
     // The two that would 404 for a person who no longer exists.
-    expect(invalidated(client, queryKeys.people.detail("p1"))).toBe(false);
-    expect(invalidated(client, queryKeys.people.idProof("p1", "FRONT"))).toBe(false);
+    expect(invalidated(client, queryKeys.people.detail(1))).toBe(false);
+    expect(invalidated(client, queryKeys.people.idProof(1, "FRONT"))).toBe(false);
 
     // Shops the person was linked to have genuinely lost a row.
     expect(invalidated(client, queryKeys.shops.list({}))).toBe(true);
@@ -60,15 +60,15 @@ describe("useDeleteShop", () => {
     client = testQueryClient();
 
     client.setQueryData(queryKeys.shops.list({}), emptyPage);
-    client.setQueryData(queryKeys.shops.detail("s1"), { id: "s1", shopNumber: "A-1" });
+    client.setQueryData(queryKeys.shops.detail(101), { id: 101, shopNumber: "A-1" });
     client.setQueryData(queryKeys.people.list({}), emptyPage);
 
     const { result } = await renderHook(() => useDeleteShop(), { wrapper: withQueryClient(client) });
-    await result.current.mutateAsync("s1");
+    await result.current.mutateAsync(101);
 
     await waitFor(() => expect(invalidated(client, queryKeys.shops.list({}))).toBe(true));
 
-    expect(invalidated(client, queryKeys.shops.detail("s1"))).toBe(false);
+    expect(invalidated(client, queryKeys.shops.detail(101))).toBe(false);
     // The people are still there; their shop lists just got shorter.
     expect(invalidated(client, queryKeys.people.list({}))).toBe(true);
   });

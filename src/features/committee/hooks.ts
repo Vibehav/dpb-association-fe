@@ -8,7 +8,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { committeeApi, type AddCommitteeMemberRequest, type UpdateCommitteeMemberRequest } from "../../api";
+import { committeeApi, type AddCommitteeMemberRequest, type Id, type UpdateCommitteeMemberRequest } from "../../api";
 import { queryKeys } from "../../app/queryKeys";
 
 export function useCommittee() {
@@ -40,7 +40,7 @@ export function useAddCommitteeMember() {
 export function useUpdateCommitteeMember() {
   const invalidate = useCommitteeInvalidation();
   return useMutation({
-    mutationFn: ({ id, body }: { id: string; body: UpdateCommitteeMemberRequest }) =>
+    mutationFn: ({ id, body }: { id: Id; body: UpdateCommitteeMemberRequest }) =>
       committeeApi.update(id, body),
     onSuccess: invalidate
   });
@@ -50,7 +50,7 @@ export function useUpdateCommitteeMember() {
 export function useResetPin() {
   const invalidate = useCommitteeInvalidation();
   return useMutation({
-    mutationFn: (id: string) => committeeApi.resetPin(id),
+    mutationFn: (id: Id) => committeeApi.resetPin(id),
     onSuccess: invalidate
   });
 }
@@ -59,7 +59,7 @@ export function useResetPin() {
 export function useRemoveCommitteeMember() {
   const invalidate = useCommitteeInvalidation();
   return useMutation({
-    mutationFn: (id: string) => committeeApi.remove(id),
+    mutationFn: (id: Id) => committeeApi.remove(id),
     onSuccess: invalidate
   });
 }

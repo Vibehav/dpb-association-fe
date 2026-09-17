@@ -2,11 +2,12 @@ import { request } from "./client";
 import type {
   AddPersonLinkRequest,
   CreatePersonRequest,
+  Id,
+  IdProofReplaceRequest,
+  IdProofSide,
   Paged,
   PeopleListParams,
   PersonListItem,
-  IdProofReplaceRequest,
-  IdProofSide,
   PersonProfile,
   SignedUrlResponse,
   UpdatePersonRequest
@@ -21,7 +22,7 @@ export const peopleApi = {
     return request<Paged<PersonListItem>>("/people", { query: { query, role, page, size } });
   },
 
-  detail(id: string) {
+  detail(id: Id) {
     return request<PersonProfile>(`/people/${id}`);
   },
 
@@ -33,17 +34,17 @@ export const peopleApi = {
     return request<PersonProfile>("/people", { method: "POST", body });
   },
 
-  update(id: string, body: UpdatePersonRequest) {
+  update(id: Id, body: UpdatePersonRequest) {
     return request<PersonProfile>(`/people/${id}`, { method: "PATCH", body });
   },
 
   /** Link another shop. Additive — the person keeps every existing link. */
-  addLink(id: string, body: AddPersonLinkRequest) {
+  addLink(id: Id, body: AddPersonLinkRequest) {
     return request<PersonProfile>(`/people/${id}/links`, { method: "POST", body });
   },
 
   /** Admin only. Soft-deletes and unlinks. */
-  remove(id: string) {
+  remove(id: Id) {
     return request<void>(`/people/${id}`, { method: "DELETE" });
   },
 
@@ -51,12 +52,12 @@ export const peopleApi = {
    * Fresh signed photo URL. The profile response already carries one, so this is only
    * needed to refresh after a retake or once the embedded URL has expired.
    */
-  photoUrl(id: string) {
+  photoUrl(id: Id) {
     return request<SignedUrlResponse>(`/people/${id}/photo`);
   },
 
   /** Retake. `key` comes from the upload flow. */
-  updatePhoto(id: string, key: string) {
+  updatePhoto(id: Id, key: string) {
     return request<void>(`/people/${id}/photo`, { method: "PUT", body: { key } });
   },
 
@@ -71,7 +72,7 @@ export const peopleApi = {
    *
    * 404 `id_proof_missing` when that side was never captured.
    */
-  idProofUrl(id: string, side: IdProofSide) {
+  idProofUrl(id: Id, side: IdProofSide) {
     return request<SignedUrlResponse>(`/people/${id}/id-proof/${side}`);
   },
 
@@ -82,7 +83,7 @@ export const peopleApi = {
    *
    * Note the side moved from the body into the **path** in the ID-proof refactor.
    */
-  updateIdProofSide(id: string, side: IdProofSide, key: string) {
+  updateIdProofSide(id: Id, side: IdProofSide, key: string) {
     return request<void>(`/people/${id}/id-proof/${side}`, { method: "PUT", body: { key } });
   },
 
@@ -92,7 +93,7 @@ export const peopleApi = {
    * Destructive by design: an omitted `backKey` clears the stored back image and an omitted
    * `last4` wipes it. See `IdProofReplaceRequest`.
    */
-  replaceIdProof(id: string, body: IdProofReplaceRequest) {
+  replaceIdProof(id: Id, body: IdProofReplaceRequest) {
     return request<void>(`/people/${id}/id-proof`, { method: "PUT", body });
   }
 };

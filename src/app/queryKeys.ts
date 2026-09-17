@@ -1,4 +1,4 @@
-import type { IdProofSide, PeopleListParams, ShopListParams } from "../api";
+import type { Id, IdProofSide, PeopleListParams, ShopListParams } from "../api";
 
 /**
  * Every query key in one place, so invalidation after a mutation is a lookup rather
@@ -17,7 +17,7 @@ export const queryKeys = {
      */
     lists: ["shops", "list"] as const,
     list: (params: ShopListParams) => ["shops", "list", params] as const,
-    detail: (id: string) => ["shops", "detail", id] as const
+    detail: (id: Id) => ["shops", "detail", id] as const
   },
 
   people: {
@@ -25,15 +25,15 @@ export const queryKeys = {
     /** See `shops.lists`. */
     lists: ["people", "list"] as const,
     list: (params: PeopleListParams) => ["people", "list", params] as const,
-    detail: (id: string) => ["people", "detail", id] as const,
-    photo: (id: string) => ["people", "detail", id, "photo"] as const,
+    detail: (id: Id) => ["people", "detail", id] as const,
+    photo: (id: Id) => ["people", "detail", id, "photo"] as const,
     /** Admin-only. Never prefetched, never persisted — the URL is short-lived and logged. */
-    idProof: (id: string, side: IdProofSide) => ["people", "detail", id, "id-proof", side] as const
+    idProof: (id: Id, side: IdProofSide) => ["people", "detail", id, "id-proof", side] as const
   },
 
   committee: {
     all: ["committee"] as const,
-    detail: (id: string) => ["committee", "detail", id] as const
+    detail: (id: Id) => ["committee", "detail", id] as const
   }
 };
 

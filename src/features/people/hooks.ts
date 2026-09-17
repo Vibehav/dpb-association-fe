@@ -10,6 +10,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import {
   peopleApi,
   type AddPersonLinkRequest,
+  type Id,
   type CreatePersonRequest,
   type IdProofReplaceRequest,
   type IdProofSide,
@@ -30,7 +31,7 @@ export function usePeopleList(filters: PeopleFilters) {
   });
 }
 
-export function usePerson(id: string) {
+export function usePerson(id: Id) {
   return useQuery({
     queryKey: queryKeys.people.detail(id),
     queryFn: () => peopleApi.detail(id)
@@ -39,7 +40,7 @@ export function usePerson(id: string) {
 
 function usePersonInvalidation() {
   const queryClient = useQueryClient();
-  return (personId?: string) => {
+  return (personId?: Id) => {
     queryClient.invalidateQueries({
       queryKey: queryKeys.people.all,
       // Never let a bulk refresh touch an ID-proof URL — every refetch is an audit row.
@@ -73,7 +74,7 @@ export function useCreatePerson() {
   });
 }
 
-export function useUpdatePerson(id: string) {
+export function useUpdatePerson(id: Id) {
   const invalidate = usePersonInvalidation();
   return useMutation({
     mutationFn: (body: UpdatePersonRequest) => peopleApi.update(id, body),
@@ -81,7 +82,7 @@ export function useUpdatePerson(id: string) {
   });
 }
 
-export function useAddPersonLink(id: string) {
+export function useAddPersonLink(id: Id) {
   const invalidate = usePersonInvalidation();
   return useMutation({
     mutationFn: (body: AddPersonLinkRequest) => peopleApi.addLink(id, body),
@@ -92,7 +93,7 @@ export function useAddPersonLink(id: string) {
 export function useDeletePerson() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => peopleApi.remove(id),
+    mutationFn: (id: Id) => peopleApi.remove(id),
     onSuccess: () => {
       // `lists`, not `all`. Invalidating `all` refetched the deleted person's *detail* and
       // any revealed *ID-proof* query — both keyed beneath it — producing a pair of
@@ -111,7 +112,7 @@ export function useDeletePerson() {
   });
 }
 
-export function useUpdatePhoto(id: string) {
+export function useUpdatePhoto(id: Id) {
   const invalidate = usePersonInvalidation();
   return useMutation({
     mutationFn: (key: string) => peopleApi.updatePhoto(id, key),
@@ -120,7 +121,7 @@ export function useUpdatePhoto(id: string) {
 }
 
 /** Re-capture one side. The document type is untouched. */
-export function useRecaptureIdProofSide(id: string) {
+export function useRecaptureIdProofSide(id: Id) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ side, key }: { side: IdProofSide; key: string }) =>
@@ -146,7 +147,7 @@ export function useRecaptureIdProofSide(id: string) {
  * Both sides are superseded: the new front replaces the old one, and an omitted `backKey`
  * clears the back outright. Every signed URL we hold is about to 404 for good.
  */
-export function useReplaceIdProof(id: string) {
+export function useReplaceIdProof(id: Id) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: IdProofReplaceRequest) => peopleApi.replaceIdProof(id, body),
@@ -169,7 +170,7 @@ export function useReplaceIdProof(id: string) {
  * `enabled` false for anyone else — the rule is not to call it at all, not to call it and
  * handle the 403 (integration doc §9).
  */
-export function useIdProofUrl(id: string, side: IdProofSide, enabled: boolean) {
+export function useIdProofUrl(id: Id, side: IdProofSide, enabled: boolean) {
   return useQuery({
     queryKey: queryKeys.people.idProof(id, side),
     queryFn: () => peopleApi.idProofUrl(id, side),

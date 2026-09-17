@@ -41,7 +41,7 @@ jest.mock("../../../media", () => {
 });
 
 const person: PersonProfile = {
-  id: "p1",
+  id: 1,
   name: "Sachin Shinde",
   phone: "9892710532",
   whatsappPhone: "9892710532",
@@ -85,7 +85,7 @@ async function renderScreen(overrides: Partial<PersonProfile> = {}) {
   const view = render(
     <IdProofReplaceScreen
       navigation={{ goBack } as never}
-      route={{ key: "k", name: "IdProofReplace", params: { personId: "p1" } } as never}
+      route={{ key: "k", name: "IdProofReplace", params: { personId: 1 } } as never}
     />,
     { wrapper: withQueryClient(client) }
   );

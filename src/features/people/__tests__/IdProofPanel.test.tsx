@@ -36,7 +36,7 @@ jest.mock("../../../media", () => ({
 const mockPermissions = usePermissions as jest.MockedFunction<typeof usePermissions>;
 
 const person: PersonProfile = {
-  id: "p1",
+  id: 1,
   name: "Sachin Shinde",
   phone: "9892710532",
   whatsappPhone: "9892710532",
@@ -141,7 +141,7 @@ describe("IdProofPanel — admin", () => {
     await fireEvent.press(getByText("View front"));
 
     await waitFor(() => expect(idProofUrl).toHaveBeenCalledTimes(1));
-    expect(idProofUrl).toHaveBeenCalledWith("p1", "FRONT");
+    expect(idProofUrl).toHaveBeenCalledWith(1, "FRONT");
   });
 });
 

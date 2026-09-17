@@ -113,16 +113,16 @@ describe("consent — mandatory", () => {
 describe("links — at least one, and never OWNER", () => {
   it("requires at least one", () => {
     fails(validateLinks([]));
-    ok(validateLinks([{ shopId: "s1", role: "STAFF" }]));
+    ok(validateLinks([{ shopId: 101, role: "STAFF" }]));
   });
 
   it("refuses an OWNER link — owners come only from registration or transfer", () => {
-    fails(validateLinks([{ shopId: "s1", role: "OWNER" }]));
-    fails(validateLinks([{ shopId: "s1", role: "STAFF" }, { shopId: "s2", role: "OWNER" }]));
+    fails(validateLinks([{ shopId: 101, role: "OWNER" }]));
+    fails(validateLinks([{ shopId: 101, role: "STAFF" }, { shopId: 102, role: "OWNER" }]));
   });
 
   it("accepts renter and staff together", () => {
-    ok(validateLinks([{ shopId: "s1", role: "RENTER" }, { shopId: "s2", role: "STAFF" }]));
+    ok(validateLinks([{ shopId: 101, role: "RENTER" }, { shopId: 102, role: "STAFF" }]));
   });
 });
 

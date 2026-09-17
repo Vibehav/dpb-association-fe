@@ -1,5 +1,5 @@
 import { request } from "./client";
-import type { AddCommitteeMemberRequest, CommitteeMember, UpdateCommitteeMemberRequest } from "./types";
+import type { AddCommitteeMemberRequest, CommitteeMember, Id, UpdateCommitteeMemberRequest } from "./types";
 
 /**
  * Committee management. Every endpoint is admin only (403 otherwise).
@@ -14,7 +14,7 @@ export const committeeApi = {
     return request<CommitteeMember[]>("/committee");
   },
 
-  detail(id: string) {
+  detail(id: Id) {
     return request<CommitteeMember>(`/committee/${id}`);
   },
 
@@ -28,17 +28,17 @@ export const committeeApi = {
   },
 
   /** Updates any combination of name, email and role. */
-  update(id: string, body: UpdateCommitteeMemberRequest) {
+  update(id: Id, body: UpdateCommitteeMemberRequest) {
     return request<CommitteeMember>(`/committee/${id}`, { method: "PATCH", body });
   },
 
   /** Clears the PIN and ends their sessions. They must set a new PIN to sign in again. */
-  resetPin(id: string) {
+  resetPin(id: Id) {
     return request<void>(`/committee/${id}/reset-pin`, { method: "POST" });
   },
 
   /** Soft-remove. Ends their sessions and frees the phone number for re-adding. */
-  remove(id: string) {
+  remove(id: Id) {
     return request<void>(`/committee/${id}`, { method: "DELETE" });
   }
 };

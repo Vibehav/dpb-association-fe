@@ -10,6 +10,16 @@
  * Optional fields are typed `| null` because that is what Jackson serialises.
  */
 
+/**
+ * Every entity id on the wire.
+ *
+ * Server-issued `bigint`s, serialised as JSON numbers (`"id": 201`). They were UUID strings
+ * until 2026-09-17; see the API's `docs/id-bigint-migration-plan.md`. Values stay far inside
+ * `Number.MAX_SAFE_INTEGER`, so no string handling is needed — but keep the alias rather than
+ * writing `number` inline, so a future change is one line.
+ */
+export type Id = number;
+
 // ---------------------------------------------------------------------------
 // enums
 // ---------------------------------------------------------------------------
@@ -93,7 +103,7 @@ export type PhoneCheckResponse = {
 export type ResetTokenResponse = { resetToken: string };
 
 export type Me = {
-  id: string;
+  id: Id;
   name: string;
   role: Role;
 };
@@ -103,7 +113,7 @@ export type Me = {
 // ---------------------------------------------------------------------------
 
 export type ShopListItem = {
-  id: string;
+  id: Id;
   shopNumber: string;
   businessName: string;
   lane: string;
@@ -117,15 +127,15 @@ export type ShopListItem = {
 
 export type PersonAtShop = {
   /** Target for `DELETE /links/{linkId}`. */
-  linkId: string;
-  personId: string;
+  linkId: Id;
+  personId: Id;
   name: string;
   phone: string;
   role: LinkRole;
 };
 
 export type ShopDetail = {
-  id: string;
+  id: Id;
   shopNumber: string;
   businessName: string;
   lane: string;
@@ -140,7 +150,7 @@ export type ShopDetail = {
 
 /** Exactly one of the two must be set. */
 export type OwnerInput =
-  | { existingPersonId: string; newPerson?: never }
+  | { existingPersonId: Id; newPerson?: never }
   | { newPerson: NewPersonPayload; existingPersonId?: never };
 
 export type RegisterShopRequest = {
@@ -178,15 +188,15 @@ export type ShopListParams = {
 // ---------------------------------------------------------------------------
 
 export type PersonShopLink = {
-  linkId: string;
-  shopId: string;
+  linkId: Id;
+  shopId: Id;
   shopNumber: string;
   businessName: string;
   role: LinkRole;
 };
 
 export type PersonListItem = {
-  id: string;
+  id: Id;
   name: string;
   /** 10 digits, no country code. Format for display; send the digits. */
   phone: string;
@@ -194,7 +204,7 @@ export type PersonListItem = {
 };
 
 export type PersonProfile = {
-  id: string;
+  id: Id;
   name: string;
   phone: string;
   whatsappPhone: string;
@@ -242,7 +252,7 @@ export type NewPersonPayload = {
 export type CreatePersonRequest = {
   person: NewPersonPayload;
   /** At least one, and RENTER/STAFF only — an OWNER link here is a 400. */
-  links: { shopId: string; role: LinkableRole }[];
+  links: { shopId: Id; role: LinkableRole }[];
 };
 
 export type UpdatePersonRequest = {
@@ -252,7 +262,7 @@ export type UpdatePersonRequest = {
   address?: string;
 };
 
-export type AddPersonLinkRequest = { shopId: string; role: LinkableRole };
+export type AddPersonLinkRequest = { shopId: Id; role: LinkableRole };
 
 /**
  * Body of `PUT /people/{id}/id-proof` — a **whole-document** replace, and the only way to
@@ -300,7 +310,7 @@ export type SignedUrlResponse = {
 // ---------------------------------------------------------------------------
 
 export type CommitteeMember = {
-  id: string;
+  id: Id;
   name: string;
   phone: string;
   /** Used for first-login and M-PIN reset codes. */

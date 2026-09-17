@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
-import { peopleApi, type PersonListItem } from "../../api";
+import { type Id, peopleApi, type PersonListItem } from "../../api";
 import { queryKeys } from "../../app/queryKeys";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { colors, spacing, typography } from "../../theme";
@@ -21,7 +21,7 @@ type Props = {
   /** Omit to hide the create affordance — e.g. when the caller can't create people. */
   onCreateNew?: () => void;
   /** People who can't be picked here, e.g. already linked to this shop. */
-  excludeIds?: string[];
+  excludeIds?: Id[];
 };
 
 /** The design's own wording (prototype `showPickSheet`). */

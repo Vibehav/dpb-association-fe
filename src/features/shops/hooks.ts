@@ -12,6 +12,7 @@ import {
   linksApi,
   shopsApi,
   type AddShopLinkRequest,
+  type Id,
   type RegisterShopRequest,
   type TransferRequest,
   type UpdateShopRequest
@@ -31,7 +32,7 @@ export function useShopsList(filters: ShopFilters) {
   });
 }
 
-export function useShop(id: string) {
+export function useShop(id: Id) {
   return useQuery({
     queryKey: queryKeys.shops.detail(id),
     queryFn: () => shopsApi.detail(id)
@@ -41,7 +42,7 @@ export function useShop(id: string) {
 /** Invalidate everything a shop write can affect. */
 function useShopInvalidation() {
   const queryClient = useQueryClient();
-  return (shopId?: string) => {
+  return (shopId?: Id) => {
     queryClient.invalidateQueries({
       queryKey: queryKeys.shops.all,
       predicate: (query) => query.queryHash !== shopCountQueryHash
@@ -72,7 +73,7 @@ export function useRegisterShop() {
   });
 }
 
-export function useUpdateShop(id: string) {
+export function useUpdateShop(id: Id) {
   const invalidate = useShopInvalidation();
   return useMutation({
     mutationFn: (body: UpdateShopRequest) => shopsApi.update(id, body),
@@ -83,7 +84,7 @@ export function useUpdateShop(id: string) {
 export function useDeleteShop() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => shopsApi.remove(id),
+    mutationFn: (id: Id) => shopsApi.remove(id),
     onSuccess: () => {
       // `lists`, not `all` — the detail lives under `all`, and refetching a shop that has
       // just been soft-deleted answers 404 while its screen is still mounted. The stale
@@ -102,7 +103,7 @@ export function useDeleteShop() {
   });
 }
 
-export function useAddShopLink(id: string) {
+export function useAddShopLink(id: Id) {
   const invalidate = useShopInvalidation();
   return useMutation({
     mutationFn: (body: AddShopLinkRequest) => shopsApi.addLink(id, body),
@@ -110,7 +111,7 @@ export function useAddShopLink(id: string) {
   });
 }
 
-export function useTransferLicence(id: string) {
+export function useTransferLicence(id: Id) {
   const invalidate = useShopInvalidation();
   return useMutation({
     mutationFn: (body: TransferRequest) => shopsApi.transfer(id, body),
@@ -119,10 +120,10 @@ export function useTransferLicence(id: string) {
 }
 
 /** Remove a RENTER or STAFF link. An OWNER link is a 400 — transfer replaces it instead. */
-export function useRemoveLink(shopId?: string) {
+export function useRemoveLink(shopId?: Id) {
   const invalidate = useShopInvalidation();
   return useMutation({
-    mutationFn: (linkId: string) => linksApi.remove(linkId),
+    mutationFn: (linkId: Id) => linksApi.remove(linkId),
     onSuccess: () => invalidate(shopId)
   });
 }

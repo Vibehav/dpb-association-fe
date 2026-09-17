@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
-import { isCode, type IdProofSide, type PersonProfile } from "../../../api";
+import { isCode, type Id, type IdProofSide, type PersonProfile } from "../../../api";
 import { usePermissions } from "../../../auth/usePermissions";
 import { Banner, Button, Card } from "../../../components/ui";
 import { useImageCapture } from "../../../media";
@@ -144,7 +144,7 @@ function SideCard({
   revealed,
   onToggle
 }: {
-  personId: string;
+  personId: Id;
   side: IdProofSide;
   canView: boolean;
   canWrite: boolean;

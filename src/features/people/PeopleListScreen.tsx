@@ -3,7 +3,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useState } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import type { LinkRole } from "../../api";
+import type { IdProofFilter, LinkRole } from "../../api";
 import { usePermissions } from "../../auth/usePermissions";
 import { Button, Chip, ChipRow, EmptyState, ErrorState, ListFooter, SearchBox } from "../../components/ui";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
@@ -17,6 +17,19 @@ import { usePeopleList } from "./hooks";
 const ROLES: LinkRole[] = ["OWNER", "RENTER", "STAFF"];
 
 /**
+ * The ID-proof filter, since client revision v2. `PENDING` is the queue the committee works
+ * through: right after the register is loaded it is most of the membership.
+ *
+ * A filter on this screen rather than a separate one because the list rows carry no ID-proof
+ * field of their own — the server is the only thing that knows which state a member is in, so
+ * "show me the pending ones" has to be a query, and it may as well sit beside the role chips.
+ */
+const ID_PROOF_FILTERS: { value: IdProofFilter; label: string }[] = [
+  { value: "PENDING", label: "No ID proof" },
+  { value: "CAPTURED", label: "ID proof on file" }
+];
+
+/**
  * The member register (integration doc §5.6). Search matches name, phone or shop number;
  * both search and pagination are server-side across ~2,300 people.
  */
@@ -26,15 +39,20 @@ export function PeopleListScreen() {
 
   const [term, setTerm] = useState("");
   const [role, setRole] = useState<LinkRole | null>(null);
+  const [idProof, setIdProof] = useState<IdProofFilter | null>(null);
   const debounced = useDebouncedValue(term.trim(), 350);
 
-  const list = usePeopleList({ query: debounced || undefined, role: role ?? undefined });
+  const list = usePeopleList({
+    query: debounced || undefined,
+    role: role ?? undefined,
+    idProof: idProof ?? undefined
+  });
   useRefreshOnFocus(list.refetch);
 
   const pages = list.data?.pages ?? [];
   const people = pages.flatMap((page) => page.content);
   const total = pages[0]?.totalElements ?? 0;
-  const filtered = Boolean(debounced) || role !== null;
+  const filtered = Boolean(debounced) || role !== null || idProof !== null;
 
   if (list.error && people.length === 0) {
     return (
@@ -75,6 +93,23 @@ export function PeopleListScreen() {
                 />
               ))}
             </ChipRow>
+            <ChipRow>
+              <Chip
+                label="Any ID proof"
+                selected={idProof === null}
+                onPress={() => setIdProof(null)}
+              />
+              {ID_PROOF_FILTERS.map(({ value, label }) => (
+                <Chip
+                  key={value}
+                  label={label}
+                  selected={idProof === value}
+                  // Tapping the active chip clears it — the pending queue is something you
+                  // dip into and back out of, not a mode to get stuck in.
+                  onPress={() => setIdProof((current) => (current === value ? null : value))}
+                />
+              ))}
+            </ChipRow>
             {!list.isPending ? (
               <Text style={typography.bodySmall}>
                 {countLine(people.length, total, "person", "people")}
@@ -93,11 +128,19 @@ export function PeopleListScreen() {
           list.isPending ? null : (
             <EmptyState
               icon="people-outline"
-              title={filtered ? "No one matches" : "No members yet"}
+              title={
+                idProof === "PENDING" && !debounced && role === null
+                  ? "Every member has an ID proof"
+                  : filtered
+                    ? "No one matches"
+                    : "No members yet"
+              }
               message={
-                filtered
-                  ? "Try a different name, number or shop."
-                  : "Members are added from a shop, or here once a shop exists."
+                idProof === "PENDING" && !debounced && role === null
+                  ? "Nothing is waiting to be captured."
+                  : filtered
+                    ? "Try a different name, number or shop."
+                    : "Members are added from a shop, or here once a shop exists."
               }
             />
           )

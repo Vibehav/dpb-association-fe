@@ -5,6 +5,7 @@ import { type Id, shopsApi, type ShopListItem } from "../../api";
 import { queryKeys } from "../../app/queryKeys";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { colors, radii, spacing, typography } from "../../theme";
+import { BusinessName } from "../ui/BusinessName";
 import { ErrorState } from "../ui/ErrorState";
 import { SearchBox } from "../ui/SearchBox";
 
@@ -68,7 +69,7 @@ export function ShopPicker({ onPick, excludeShopIds, autoFocus }: Props) {
             >
               <Text style={styles.number}>{shop.shopNumber}</Text>
               <View style={styles.text}>
-                <Text style={typography.cardTitle}>{shop.businessName}</Text>
+                <BusinessName businessName={shop.businessName} style={typography.cardTitle} />
                 <Text style={typography.bodySmall}>{shop.lane}</Text>
               </View>
             </Pressable>

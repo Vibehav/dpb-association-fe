@@ -13,6 +13,7 @@ import {
   type Id,
   type CreatePersonRequest,
   type IdProofReplaceRequest,
+  type IdProofFilter,
   type IdProofSide,
   type LinkRole,
   type UpdatePersonRequest
@@ -20,7 +21,7 @@ import {
 import { isIdProofQuery, queryKeys } from "../../app/queryKeys";
 import { COUNT_ONLY, peopleCountQueryHash, shopCountQueryHash } from "../../app/countQueries";
 
-export type PeopleFilters = { query?: string; role?: LinkRole };
+export type PeopleFilters = { query?: string; role?: LinkRole; idProof?: IdProofFilter };
 
 export function usePeopleList(filters: PeopleFilters) {
   return useInfiniteQuery({
@@ -159,6 +160,35 @@ export function useReplaceIdProof(id: Id) {
       });
       queryClient.removeQueries({ queryKey: queryKeys.people.idProof(id, "FRONT") });
       queryClient.removeQueries({ queryKey: queryKeys.people.idProof(id, "BACK") });
+    }
+  });
+}
+
+/**
+ * Take the document off file. Admin only; the member returns to **pending**.
+ *
+ * Mirrors {@link useReplaceIdProof}'s cache handling, and for the same reasons: the profile
+ * carries the type and last four, and any signed URL we hold is about to point at bytes the
+ * server has queued for deletion. `removeQueries`, never `invalidate` — invalidating an
+ * *active* ID-proof query refetches it, and that refetch is a VIEW row in the audit log that
+ * nobody asked for. Here it would also be a VIEW of a document that no longer exists.
+ */
+export function useRemoveIdProof(id: Id) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => peopleApi.removeIdProof(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.people.detail(id),
+        predicate: (query) => !isIdProofQuery(query)
+      });
+      queryClient.removeQueries({ queryKey: queryKeys.people.idProof(id, "FRONT") });
+      queryClient.removeQueries({ queryKey: queryKeys.people.idProof(id, "BACK") });
+      // The member has just re-entered the pending queue, so every people list is stale.
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.people.lists,
+        predicate: (query) => query.queryHash !== peopleCountQueryHash
+      });
     }
   });
 }

@@ -3,11 +3,12 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import { isCode, type Id, type IdProofSide, type PersonProfile } from "../../../api";
 import { usePermissions } from "../../../auth/usePermissions";
-import { Banner, Button, Card } from "../../../components/ui";
+import { Banner, Button, Card, ConfirmSheet } from "../../../components/ui";
 import { useImageCapture } from "../../../media";
 import { colors, radii, spacing, typography } from "../../../theme";
+import { errorMessage } from "../../../api";
 import { formatDate, idProofLabel, idProofSummary } from "../../../utils/format";
-import { useIdProofUrl, useRecaptureIdProofSide } from "../hooks";
+import { useIdProofUrl, useRecaptureIdProofSide, useRemoveIdProof } from "../hooks";
 
 /**
  * ID proof on file — the strictest data in the app (integration doc §9, spec §4.3).
@@ -21,16 +22,29 @@ import { useIdProofUrl, useRecaptureIdProofSide } from "../hooks";
  * The design shows a blurred image for non-admins. There is nothing to blur here because
  * the bytes are never fetched, so it renders as an explicit locked placeholder instead —
  * which is the same intent, more honestly.
+ *
+ * Since client revision v2 a member may be **pending** — enrolled before any document was
+ * captured, which is how the client's register arrives. That is a different panel, not a
+ * greyed-out version of this one: there is nothing to view, nothing to re-shoot and no type
+ * to change, and every one of those endpoints answers a pending member with a 404 or a 409.
+ * What there *is* is a first capture, open to a collector as well as an admin.
  */
 export function IdProofPanel({
   person,
   onReplace
 }: {
   person: PersonProfile;
-  /** Opens the whole-document replace flow. Omitted in tests that don't exercise it. */
+  /**
+   * Opens the whole-document capture/replace flow — the same screen for both, because they
+   * are the same request. Omitted in tests that don't exercise it.
+   */
   onReplace?: () => void;
 }) {
-  const { canChangeIdProofType, canViewIdProof, canWrite } = usePermissions();
+  const { canCaptureIdProof, canChangeIdProofType, canRemoveIdProof, canViewIdProof, canWrite } =
+    usePermissions();
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const remove = useRemoveIdProof(person.id);
 
   // Held here rather than in each SideCard so a replace can collapse both at once — the
   // signed URLs behind them are removed from cache and their objects queued for deletion.
@@ -45,6 +59,33 @@ export function IdProofPanel({
     setRevealed({ FRONT: false, BACK: false });
   }, [person.idProofType, person.idProofLast4]);
 
+  // Read once and narrow: everything below the guard is the captured state, and the type is
+  // the thing that distinguishes the two.
+  const idProofType = person.idProofType;
+
+  if (!idProofType) {
+    return (
+      <Card>
+        <Text style={typography.eyebrow}>ID proof on file</Text>
+        <Text style={typography.body}>No ID proof on file</Text>
+        <Text style={typography.bodySmall}>
+          {canCaptureIdProof
+            ? "This member was enrolled before their document was captured. Capture it the next time they are in front of you."
+            : "This member was enrolled before their document was captured. An admin or a collector can add it."}
+        </Text>
+        <Text style={typography.bodySmall}>
+          Member added by {person.addedByName ?? "unknown"} · {formatDate(person.addedOn)}
+        </Text>
+
+        {canCaptureIdProof && onReplace ? (
+          <View style={styles.replace}>
+            <Button label="Capture ID proof" icon="camera-outline" onPress={onReplace} />
+          </View>
+        ) : null}
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <Text style={typography.eyebrow}>ID proof on file</Text>
@@ -54,11 +95,11 @@ export function IdProofPanel({
         // "••••4567" is read out as four bullet glyphs by TalkBack and VoiceOver.
         accessibilityLabel={
           person.idProofLast4
-            ? `${idProofLabel(person.idProofType)}, ending ${person.idProofLast4}`
-            : idProofLabel(person.idProofType)
+            ? `${idProofLabel(idProofType)}, ending ${person.idProofLast4}`
+            : idProofLabel(idProofType)
         }
       >
-        {idProofSummary(person.idProofType, person.idProofLast4)}
+        {idProofSummary(idProofType, person.idProofLast4)}
       </Text>
       {person.idProofLast4 ? null : (
         <Text style={typography.bodySmall}>Last four characters not recorded.</Text>
@@ -132,6 +173,45 @@ export function IdProofPanel({
           </Text>
         </View>
       ) : null}
+
+      {canRemoveIdProof ? (
+        <View style={styles.replace}>
+          <Button
+            label="Remove ID proof"
+            variant="secondary"
+            icon="trash-outline"
+            onPress={() => {
+              setRemoveError(null);
+              setRemoving(true);
+            }}
+          />
+          <Text style={typography.bodySmall}>
+            Takes the document off file and deletes the stored images. The member goes back to
+            the pending list.
+          </Text>
+        </View>
+      ) : null}
+
+      {removeError ? <Banner message={removeError} /> : null}
+
+      <ConfirmSheet
+        visible={removing}
+        onClose={() => setRemoving(false)}
+        title="Remove this ID proof?"
+        message={`The stored ${idProofLabel(idProofType)} images are deleted, not just unlinked, and the member returns to the pending list. Capturing a new document later is a fresh capture.`}
+        confirmLabel="Remove ID proof"
+        destructive
+        loading={remove.isPending}
+        onConfirm={async () => {
+          try {
+            await remove.mutateAsync();
+            setRemoving(false);
+          } catch (caught) {
+            setRemoving(false);
+            setRemoveError(errorMessage(caught));
+          }
+        }}
+      />
     </Card>
   );
 }

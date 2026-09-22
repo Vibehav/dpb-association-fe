@@ -3,14 +3,14 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { LINKABLE_ROLES, type Id, type LinkableRole } from "../../../api";
 import { ShopPicker } from "../../../components/search/ShopPicker";
-import { Button, Card, Chip, ChipRow } from "../../../components/ui";
+import { BusinessName, Button, Card, Chip, ChipRow } from "../../../components/ui";
 import { colors, spacing, typography } from "../../../theme";
 import { roleLabel } from "../../../utils/format";
 
 export type PickedLink = {
   shopId: Id;
   shopNumber: string;
-  businessName: string;
+  businessName: string | null;
   role: LinkableRole;
 };
 
@@ -57,9 +57,11 @@ export function ShopLinksField({ links, onChange }: Props) {
       {links.map((link) => (
         <View key={link.shopId} style={styles.row}>
           <Text style={styles.number}>{link.shopNumber}</Text>
-          <Text style={[typography.body, styles.grow]} numberOfLines={1}>
-            {link.businessName}
-          </Text>
+          <BusinessName
+            businessName={link.businessName}
+            style={[typography.body, styles.grow]}
+            numberOfLines={1}
+          />
           <Chip label={roleLabel(link.role)} />
           <Pressable
             onPress={() => onChange(links.filter((other) => other.shopId !== link.shopId))}

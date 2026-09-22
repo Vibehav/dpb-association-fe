@@ -6,6 +6,7 @@ import { usePermissions } from "../../auth/usePermissions";
 import {
   Avatar,
   Banner,
+  BusinessName,
   Button,
   Card,
   Chip,
@@ -84,7 +85,7 @@ export function ShopDetailScreen({ navigation, route }: Props) {
         <View style={styles.headerRow}>
           <View style={styles.headerText}>
             <Text style={styles.number}>{data.shopNumber}</Text>
-            <Text style={typography.title}>{data.businessName}</Text>
+            <BusinessName businessName={data.businessName} style={typography.title} />
             <Text style={typography.body}>{data.lane}</Text>
           </View>
           {canWrite ? (

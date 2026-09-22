@@ -75,11 +75,21 @@ describe("PIN and OTP lengths", () => {
 
 describe("required text fields", () => {
   it("rejects blank and whitespace-only", () => {
-    for (const check of [validateName, validateShopNumber, validateBusinessName, validateLane]) {
+    for (const check of [validateName, validateShopNumber, validateLane]) {
       ok(check("something"));
       fails(check(""));
       fails(check("   "));
     }
+  });
+});
+
+describe("business name — optional since client revision v1", () => {
+  it("accepts a name, and accepts none", () => {
+    ok(validateBusinessName("Shree Traders"));
+    // Blank is a legitimate "not recorded yet", not an error: a shop is often registered
+    // before its board goes up, and the shop number is its identity.
+    ok(validateBusinessName(""));
+    ok(validateBusinessName("   "));
   });
 });
 

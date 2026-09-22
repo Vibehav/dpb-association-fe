@@ -9,7 +9,17 @@ import {
   type PersonListItem
 } from "../../api";
 import { PersonSearchSheet } from "../../components/search/PersonSearchSheet";
-import { Banner, Button, Card, Chip, ChipRow, ErrorState, LoadingScreen, Screen } from "../../components/ui";
+import {
+  Banner,
+  BusinessName,
+  Button,
+  Card,
+  Chip,
+  ChipRow,
+  ErrorState,
+  LoadingScreen,
+  Screen
+} from "../../components/ui";
 import type { AppStackParamList } from "../../navigation/types";
 import { typography } from "../../theme";
 import { roleLabel } from "../../utils/format";
@@ -84,9 +94,8 @@ export function ShopAddPersonScreen({ navigation, route }: Props) {
   return (
     <Screen>
       <Card>
-        <Text style={typography.cardTitle}>
-          {data.shopNumber} · {data.businessName}
-        </Text>
+        <Text style={typography.cardTitle}>{data.shopNumber}</Text>
+        <BusinessName businessName={data.businessName} style={typography.cardTitle} />
         <Text style={typography.body}>
           The licence holder is set through registration or a transfer, so only a renter or a
           worker can be added here.

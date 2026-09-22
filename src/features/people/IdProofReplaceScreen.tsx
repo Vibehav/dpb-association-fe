@@ -38,6 +38,12 @@ type Props = NativeStackScreenProps<AppStackParamList, "IdProofReplace">;
  *
  * A modal screen rather than a Sheet because `Sheet` has no ScrollView, and two capture
  * frames plus a chip row and a field do not fit a phone viewport.
+ *
+ * Since client revision v2 this screen also serves the **first capture** on a pending member,
+ * because it is the same request — `PUT /id-proof` carrying the type and the images. Only the
+ * wording differs, and it has to: there is nothing being replaced, nothing being destroyed,
+ * and a collector may do it. Splitting it into a second screen would have duplicated the
+ * capture, validation and last-four handling to change six strings.
  */
 export function IdProofReplaceScreen({ navigation, route }: Props) {
   const { personId } = route.params;
@@ -53,9 +59,10 @@ export function IdProofReplaceScreen({ navigation, route }: Props) {
 
   const loaded = person.data;
 
-  // Adopt the stored type once, then follow the picker.
+  // Adopt the stored type once, then follow the picker. A pending member has none, so the
+  // default stands and the collector picks whatever the member has brought.
   useEffect(() => {
-    if (loaded) setType(loaded.idProofType);
+    if (loaded?.idProofType) setType(loaded.idProofType);
   }, [loaded?.idProofType]);
 
   /**
@@ -70,6 +77,15 @@ export function IdProofReplaceScreen({ navigation, route }: Props) {
     setLast4(type === loaded.idProofType ? upperCase(loaded.idProofLast4 ?? "") : "");
   }, [type, loaded?.idProofType, loaded?.idProofLast4]);
 
+  // The modal's title is set on the stack as "Replace ID proof", which is wrong — and
+  // alarming — when nothing is on file yet.
+  useEffect(() => {
+    if (!loaded) return;
+    navigation.setOptions({
+      title: loaded.idProofType ? "Replace ID proof" : "Capture ID proof"
+    });
+  }, [loaded?.idProofType, navigation]);
+
   if (person.isPending) return <LoadingScreen />;
   if (person.error || !loaded) {
     return (
@@ -78,6 +94,10 @@ export function IdProofReplaceScreen({ navigation, route }: Props) {
       </Screen>
     );
   }
+
+  // Nothing on file: this is a first capture, not a swap. Drives every string below, and the
+  // permission rule too — the server opens `PUT /id-proof` to collectors in exactly this state.
+  const firstCapture = loaded.idProofType === null;
 
   function submit() {
     const message = firstError(
@@ -111,7 +131,10 @@ export function IdProofReplaceScreen({ navigation, route }: Props) {
             // get here. If one does, say what to do next rather than "no permission".
             isCode(caught, "forbidden")
               ? "Only an admin can change the document type. Ask an admin to do this."
-              : errorMessage(caught, "Couldn't replace the document.")
+              : errorMessage(
+                  caught,
+                  firstCapture ? "Couldn't save the document." : "Couldn't replace the document."
+                )
           )
       }
     );
@@ -123,7 +146,11 @@ export function IdProofReplaceScreen({ navigation, route }: Props) {
     <Screen>
       <Banner
         tone="notice"
-        message="Replacing swaps the whole document. The images on file are removed — capture the new document's back page here if it has one."
+        message={
+          firstCapture
+            ? "This member has no ID proof on file yet. Capture the document they are holding — the back page too, if it has one."
+            : "Replacing swaps the whole document. The images on file are removed — capture the new document's back page here if it has one."
+        }
       />
 
       <Card>
@@ -140,14 +167,22 @@ export function IdProofReplaceScreen({ navigation, route }: Props) {
         </ChipRow>
 
         <ImageCaptureField
-          label={`New ${idProofLabel(type).toLowerCase()} front`}
+          label={
+            firstCapture
+              ? `${idProofLabel(type)} front`
+              : `New ${idProofLabel(type).toLowerCase()} front`
+          }
           type="ID_PROOF_FRONT"
           capture={front}
           required
           note="Stored encrypted. Once saved, only the admin can open it — collectors cannot view it again."
         />
         <ImageCaptureField
-          label={`New ${idProofLabel(type).toLowerCase()} back`}
+          label={
+            firstCapture
+              ? `${idProofLabel(type)} back`
+              : `New ${idProofLabel(type).toLowerCase()} back`
+          }
           type="ID_PROOF_BACK"
           capture={back}
         />
@@ -167,8 +202,8 @@ export function IdProofReplaceScreen({ navigation, route }: Props) {
 
       <View style={styles.actions}>
         <Button
-          label="Replace document"
-          icon="swap-horizontal-outline"
+          label={firstCapture ? "Save ID proof" : "Replace document"}
+          icon={firstCapture ? "camera-outline" : "swap-horizontal-outline"}
           loading={replace.isPending}
           onPress={submit}
         />

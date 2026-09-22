@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { shopsApi, type ShopListItem } from "../../api";
+import { type Id, shopsApi, type ShopListItem } from "../../api";
 import { queryKeys } from "../../app/queryKeys";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { colors, radii, spacing, typography } from "../../theme";
@@ -11,7 +11,7 @@ import { SearchBox } from "../ui/SearchBox";
 type Props = {
   onPick: (shop: ShopListItem) => void;
   /** Shops already linked — hidden so a duplicate link can't be attempted. */
-  excludeShopIds?: string[];
+  excludeShopIds?: Id[];
   autoFocus?: boolean;
 };
 

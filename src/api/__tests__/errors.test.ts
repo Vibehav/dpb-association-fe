@@ -25,10 +25,15 @@ describe("the code list", () => {
       "owner_not_addable", "owner_not_removable", "renter_exists", "already_linked",
       "link_not_found", "duplicate_phone", "person_not_found", "person_input",
       "consent_required", "committee_not_found", "duplicate_email", "nothing_to_update", "self_action", "last_admin",
-      "aadhaar_missing", "invalid_media_key", "media_not_uploaded",
+      "id_proof_missing", "invalid_media_key", "media_not_uploaded",
       "forbidden", "validation_error"
     ];
     for (const code of mustKnow) expect(SERVER_ERROR_CODES).toContain(code);
+  });
+
+  it("dropped the Aadhaar-era code rather than keeping both", () => {
+    // A rename that only *adds* the new code leaves dead branches matching the old one.
+    expect(SERVER_ERROR_CODES).not.toContain("aadhaar_missing");
   });
 });
 

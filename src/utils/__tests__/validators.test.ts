@@ -4,7 +4,7 @@ import {
   firstError,
   OTP_LENGTH,
   PIN_LENGTH,
-  validateAadhaarLast4,
+  validateIdProofLast4,
   validateBusinessName,
   validateConsent,
   validateEmail,
@@ -83,17 +83,23 @@ describe("required text fields", () => {
   });
 });
 
-describe("Aadhaar last 4 — optional, but exactly 4 digits when given", () => {
-  it("accepts empty or four digits", () => {
-    ok(validateAadhaarLast4(""));
-    ok(validateAadhaarLast4("   "));
-    ok(validateAadhaarLast4("1234"));
+describe("ID proof last 4 — optional, but exactly 4 letters or digits when given", () => {
+  it("accepts empty, four digits, or four alphanumerics", () => {
+    ok(validateIdProofLast4(""));
+    ok(validateIdProofLast4("   "));
+    ok(validateIdProofLast4("1234"));
+    // The whole point of the widening: a PAN ends in a letter (ABCDE1234F -> 234F).
+    ok(validateIdProofLast4("234F"));
+    // Lower case passes because the *server's* class is [A-Za-z0-9]. `Field` uppercases on
+    // the way in, but the validator must never be stricter than the API.
+    ok(validateIdProofLast4("234f"));
   });
 
-  it("rejects a partial or non-numeric value rather than silently truncating", () => {
-    fails(validateAadhaarLast4("123"));
-    fails(validateAadhaarLast4("12345"));
-    fails(validateAadhaarLast4("12a4"));
+  it("rejects a partial value, or anything outside letters and digits", () => {
+    fails(validateIdProofLast4("123"));
+    fails(validateIdProofLast4("12345"));
+    fails(validateIdProofLast4("12 4"));
+    fails(validateIdProofLast4("12-4"));
   });
 });
 
@@ -107,16 +113,16 @@ describe("consent — mandatory", () => {
 describe("links — at least one, and never OWNER", () => {
   it("requires at least one", () => {
     fails(validateLinks([]));
-    ok(validateLinks([{ shopId: "s1", role: "STAFF" }]));
+    ok(validateLinks([{ shopId: 101, role: "STAFF" }]));
   });
 
   it("refuses an OWNER link — owners come only from registration or transfer", () => {
-    fails(validateLinks([{ shopId: "s1", role: "OWNER" }]));
-    fails(validateLinks([{ shopId: "s1", role: "STAFF" }, { shopId: "s2", role: "OWNER" }]));
+    fails(validateLinks([{ shopId: 101, role: "OWNER" }]));
+    fails(validateLinks([{ shopId: 101, role: "STAFF" }, { shopId: 102, role: "OWNER" }]));
   });
 
   it("accepts renter and staff together", () => {
-    ok(validateLinks([{ shopId: "s1", role: "RENTER" }, { shopId: "s2", role: "STAFF" }]));
+    ok(validateLinks([{ shopId: 101, role: "RENTER" }, { shopId: 102, role: "STAFF" }]));
   });
 });
 

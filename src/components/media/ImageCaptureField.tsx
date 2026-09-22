@@ -9,7 +9,7 @@ type Props = {
   label: string;
   capture: ImageCapture;
   type: MediaType;
-  /** Shown under the label — e.g. the Aadhaar visibility rule. */
+  /** Shown under the label — e.g. the ID-proof visibility rule. */
   note?: string;
   /** Marks the field as required in the label. */
   required?: boolean;
@@ -36,7 +36,16 @@ export function ImageCaptureField({ label, capture, type, note, required }: Prop
 
       <View style={[styles.frame, square ? styles.square : styles.card]}>
         {previewUri ? (
-          <Image source={{ uri: previewUri }} style={styles.preview} resizeMode="cover" />
+          // `contain` for a document: an ID proof can be a landscape card or a portrait
+          // passport page, and the point of the preview is checking the *whole* capture is
+          // legible — `cover` would silently crop the ends off and the collector could not
+          // tell. A member photo is square by construction, and `cover` is right there: it
+          // keeps a face filling the circle if the picker hands back a non-square crop.
+          <Image
+            source={{ uri: previewUri }}
+            style={styles.preview}
+            resizeMode={square ? "cover" : "contain"}
+          />
         ) : (
           <View style={styles.placeholder}>
             <Ionicons
@@ -111,7 +120,10 @@ const styles = StyleSheet.create({
     position: "relative"
   },
   square: { width: 132, height: 132 },
-  // Roughly an ID card, so the whole Aadhaar is visible in the preview.
+  // A landscape letterbox sized for an ID card. Portrait documents are *contained* inside
+  // it rather than cropped, so the frame never has to change shape with the proof type —
+  // a box reflowing under the user's thumb as they correct a mis-tap is worse than a
+  // neutral one.
   card: { width: 210, height: 132 },
   preview: { width: "100%", height: "100%" },
   placeholder: { flex: 1, alignItems: "center", justifyContent: "center" },

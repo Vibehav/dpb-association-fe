@@ -1,5 +1,5 @@
 /**
- * Free-form cropping, for Aadhaar images only.
+ * Free-form cropping, for ID-proof images only.
  *
  * `expo-image-picker` cannot do this: its `aspect` option pins a *fixed* ratio and is
  * ignored on iOS entirely, where the crop is always square — which would slice the ends off
@@ -34,7 +34,7 @@ const OPTIONS = {
   /** A library pick could be HEIC; everything downstream assumes JPEG. */
   forceJpg: true,
   enableRotationGesture: true,
-  cropperToolbarTitle: "Crop the card",
+  cropperToolbarTitle: "Crop the ID proof",
   cropperChooseText: "Use photo",
   cropperCancelText: "Cancel"
 };

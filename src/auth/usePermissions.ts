@@ -16,12 +16,21 @@ export type Permissions = {
   loading: boolean;
   /** Read shops and people. Every role can. */
   canRead: boolean;
-  /** Register/edit shops and people, add renter/staff links, capture photo and Aadhaar. */
+  /** Register/edit shops and people, add renter/staff links, capture photo and ID proof. */
   canWrite: boolean;
   /** Transfer a licence, remove a link, soft-delete a shop or person. */
   isAdmin: boolean;
-  /** Open a stored Aadhaar image. Admin only, and every view is logged server-side. */
-  canViewAadhaar: boolean;
+  /** Open a stored ID-proof image. Admin only, and every view is logged server-side. */
+  canViewIdProof: boolean;
+  /**
+   * Change *which* document is on file (`PUT /id-proof`). Admin only.
+   *
+   * Distinct from `canWrite` on purpose: a collector may still re-take an unclear image via
+   * `PUT /id-proof/{side}`, which is what spec §4.3 scopes them to. Swapping a passport for
+   * a PAN card changes what the register asserts about someone's identity, so it sits with
+   * transfers and deletions.
+   */
+  canChangeIdProofType: boolean;
   /** Add, re-role, reset-PIN and remove committee members. */
   canManageCommittee: boolean;
 };
@@ -38,7 +47,8 @@ export function usePermissions(): Permissions {
     canRead: role !== null,
     canWrite,
     isAdmin,
-    canViewAadhaar: isAdmin,
+    canViewIdProof: isAdmin,
+    canChangeIdProofType: isAdmin,
     canManageCommittee: isAdmin
   };
 }

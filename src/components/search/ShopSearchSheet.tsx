@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { LINKABLE_ROLES, shopsApi, type LinkableRole, type ShopListItem } from "../../api";
+import { type Id, LINKABLE_ROLES, shopsApi, type LinkableRole, type ShopListItem } from "../../api";
 import { queryKeys } from "../../app/queryKeys";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { colors, radii, spacing, typography } from "../../theme";
@@ -19,7 +19,7 @@ type Props = {
   title: string;
   hint?: string;
   /** Shops already linked — hidden so a duplicate link can't be attempted. */
-  excludeShopIds?: string[];
+  excludeShopIds?: Id[];
   onPick: (shop: ShopListItem, role: LinkableRole) => void;
   /** Server-side failure, shown in place so the sheet can stay open on it. */
   error?: string | null;

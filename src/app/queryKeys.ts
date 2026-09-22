@@ -1,4 +1,4 @@
-import type { AadhaarSide, PeopleListParams, ShopListParams } from "../api";
+import type { Id, IdProofSide, PeopleListParams, ShopListParams } from "../api";
 
 /**
  * Every query key in one place, so invalidation after a mutation is a lookup rather
@@ -17,7 +17,7 @@ export const queryKeys = {
      */
     lists: ["shops", "list"] as const,
     list: (params: ShopListParams) => ["shops", "list", params] as const,
-    detail: (id: string) => ["shops", "detail", id] as const
+    detail: (id: Id) => ["shops", "detail", id] as const
   },
 
   people: {
@@ -25,14 +25,26 @@ export const queryKeys = {
     /** See `shops.lists`. */
     lists: ["people", "list"] as const,
     list: (params: PeopleListParams) => ["people", "list", params] as const,
-    detail: (id: string) => ["people", "detail", id] as const,
-    photo: (id: string) => ["people", "detail", id, "photo"] as const,
+    detail: (id: Id) => ["people", "detail", id] as const,
+    photo: (id: Id) => ["people", "detail", id, "photo"] as const,
     /** Admin-only. Never prefetched, never persisted — the URL is short-lived and logged. */
-    aadhaar: (id: string, side: AadhaarSide) => ["people", "detail", id, "aadhaar", side] as const
+    idProof: (id: Id, side: IdProofSide) => ["people", "detail", id, "id-proof", side] as const
   },
 
   committee: {
     all: ["committee"] as const,
-    detail: (id: string) => ["committee", "detail", id] as const
+    detail: (id: Id) => ["committee", "detail", id] as const
   }
 };
+
+/**
+ * True for an ID-proof signed-URL query. Use it to *exclude* them from bulk invalidations.
+ *
+ * Their keys sit under `people.detail(id)`, which sits under `people.all` — so
+ * `invalidateQueries({ queryKey: people.all })` prefix-matches them, and invalidate refetches
+ * **active** queries regardless of `refetchOnMount: false`. Without this guard, retaking a
+ * member's photo while an admin has the ID front open writes a VIEW row to
+ * `id_proof_access_log` that nobody asked for. Only a deliberate tap may fetch these.
+ */
+export const isIdProofQuery = (query: { queryKey: readonly unknown[] }) =>
+  query.queryKey[3] === "id-proof";

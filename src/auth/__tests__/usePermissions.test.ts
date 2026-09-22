@@ -31,12 +31,12 @@ describe("usePermissions", () => {
       canRead: true,
       canWrite: true,
       isAdmin: true,
-      canViewAadhaar: true,
+      canViewIdProof: true,
       canManageCommittee: true
     });
   });
 
-  it("lets a collector write but never view an Aadhaar or manage the committee", async () => {
+  it("lets a collector write but never view an ID proof or manage the committee", async () => {
     const p = await asRole("COLLECTOR");
     expect(p).toMatchObject({
       role: "COLLECTOR",
@@ -44,7 +44,7 @@ describe("usePermissions", () => {
       canWrite: true,
       isAdmin: false,
       // The strictest rule in the app: capture yes, view never (spec §4.3).
-      canViewAadhaar: false,
+      canViewIdProof: false,
       canManageCommittee: false
     });
   });
@@ -56,7 +56,7 @@ describe("usePermissions", () => {
       canRead: true,
       canWrite: false,
       isAdmin: false,
-      canViewAadhaar: false,
+      canViewIdProof: false,
       canManageCommittee: false
     });
   });
@@ -68,7 +68,7 @@ describe("usePermissions", () => {
     expect(p.canRead).toBe(false);
     expect(p.canWrite).toBe(false);
     expect(p.isAdmin).toBe(false);
-    expect(p.canViewAadhaar).toBe(false);
+    expect(p.canViewIdProof).toBe(false);
     expect(p.canManageCommittee).toBe(false);
   });
 
@@ -76,6 +76,6 @@ describe("usePermissions", () => {
     const p = await asRole(null);
     expect(p.role).toBeNull();
     expect(p.canWrite).toBe(false);
-    expect(p.canViewAadhaar).toBe(false);
+    expect(p.canViewIdProof).toBe(false);
   });
 });

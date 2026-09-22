@@ -12,9 +12,9 @@ import { fetch as expoFetch } from "expo/fetch";
 import { ApiError, mediaApi, type MediaType } from "../api";
 
 /**
- * Longest edge after resize. A modern phone camera produces 4–8 MB per shot; an Aadhaar
- * card and a face are both legible well under this, and the difference is a two-second
- * save versus a timeout on market-grade signal.
+ * Longest edge after resize. A modern phone camera produces 4–8 MB per shot; an ID proof
+ * and a face are both legible well under this, and the difference is a two-second save
+ * versus a timeout on market-grade signal.
  */
 const MAX_EDGE = 1600;
 const JPEG_QUALITY = 0.7;
@@ -63,7 +63,7 @@ function resizeActions({ width, height }: CapturedImage): Action[] {
 
   if (Math.max(width, height) <= MAX_EDGE) return [];
 
-  // Constrain the long edge so a portrait Aadhaar photo isn't left 4,000px tall.
+  // Constrain the long edge so a portrait ID-proof photo isn't left 4,000px tall.
   return width >= height ? [{ resize: { width: MAX_EDGE } }] : [{ resize: { height: MAX_EDGE } }];
 }
 

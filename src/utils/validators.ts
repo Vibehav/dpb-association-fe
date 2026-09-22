@@ -7,6 +7,7 @@
  * functional spec §7.2 asks for).
  */
 
+import type { Id } from "../api";
 import { normalisePhone } from "./phone";
 
 export const OTP_LENGTH = 6;
@@ -57,22 +58,36 @@ export function validateLane(value: string) {
   return value.trim() ? null : "Enter the lane or wing.";
 }
 
-/** Optional, but must be exactly 4 digits when given. */
-export function validateAadhaarLast4(value: string) {
+/**
+ * Optional, but exactly 4 letters or digits when given — a PAN ends in one (`ABCDE1234F`
+ * → `234F`) and driving-licence formats vary by state. Mirrors the API's
+ * `@Pattern("[A-Za-z0-9]{4}")`.
+ *
+ * Lower case is accepted deliberately: the class matches the server's exactly. A client
+ * validator that is *stricter* than the API rejects values the API would have taken, and
+ * the uppercasing is a `Field` concern that a paste or a prefill need not have gone
+ * through.
+ *
+ * Note what this does *not* do — an empty value is valid here, but the caller must then
+ * omit the field from the payload rather than send `""`, which the API rejects.
+ */
+export function validateIdProofLast4(value: string) {
   if (!value.trim()) return null;
-  return /^[0-9]{4}$/.test(value.trim()) ? null : "Aadhaar last 4 digits must be 4 numbers.";
+  return /^[A-Za-z0-9]{4}$/.test(value.trim())
+    ? null
+    : "Last 4 must be exactly 4 letters or numbers.";
 }
 
 export function validateConsent(consent: boolean) {
   return consent ? null : "The member must consent before their details can be saved.";
 }
 
-// §8's "photo and Aadhaar front are mandatory" rule lives in `media/validation.ts` as
+// §8's "photo and ID-proof front are mandatory" rule lives in `media/validation.ts` as
 // `imageFieldError`, which also needs the capture state to tell "not captured" apart from
 // "upload failed" — a distinction the API now enforces via `media_not_uploaded`.
 
 /** Every new member needs at least one shop link, and it may not be an OWNER link. */
-export function validateLinks(links: { shopId: string; role: string }[]) {
+export function validateLinks(links: { shopId: Id; role: string }[]) {
   if (links.length === 0) return "Link the member to at least one shop with a role.";
   if (links.some((link) => link.role === "OWNER")) {
     return "The licence holder is set through shop registration or transfer.";

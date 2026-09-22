@@ -58,13 +58,19 @@ export const SERVER_ERROR_CODES = [
   "last_admin", // 400 · cannot remove/demote the last active admin
 
   // --- media ----------------------------------------------------------------
-  "aadhaar_missing", // 404 · that side was never captured
+  "id_proof_missing", // 404 · that side was never captured
   /**
-   * 400 · a key was sent in the wrong field — a `photos/…` key as an Aadhaar key or vice
+   * 400 · a key was sent in the wrong field — a `photos/…` key as an ID-proof key or vice
    * versa. This is a **client bug**, not user error: it means a capture slot was wired to
    * the wrong `MediaType`, or one key was reused across two fields. Reusing a key was a
-   * real security hole (a photo key pointing at an Aadhaar image exposed it to non-admins),
-   * so the API now refuses it.
+   * real security hole (a photo key pointing at an ID-proof image exposed it to
+   * non-admins), so the API now refuses it.
+   *
+   * It catches only the photo↔id-proof boundary. `ID_PROOF_FRONT` and `ID_PROOF_BACK` share
+   * one storage prefix, so a front/back swap passes server-side validation and lands in the
+   * record silently — this client is the only place that can prevent it.
+   *
+   * Branch on the **code**, never the message: the message now names `ID_PROOF_FRONT`.
    */
   "invalid_media_key",
   /** 400 · the object isn't in storage — the presigned PUT never completed. */
@@ -72,7 +78,10 @@ export const SERVER_ERROR_CODES = [
 
   // --- generic --------------------------------------------------------------
   "forbidden", // 403 · authenticated but the role isn't allowed
-  "validation_error" // 400 · bean-validation failure; `message` names the field
+  // 400 · bean-validation failure, where `message` names the field — and also an
+  // unrecognised enum value in the body (a misspelled `idProofType`) or in a path segment
+  // (a bad `{side}`), where the message is Jackson's rather than ours.
+  "validation_error"
 ] as const;
 
 /** Codes this client synthesises when the request never produced an envelope. */
@@ -169,7 +178,7 @@ const OVERRIDE_MESSAGES: Partial<Record<ErrorCode, string>> = {
   otp_send_failed: "Couldn't send the code, please try again.",
   no_email_on_file: "No email address is registered for this number. Please contact the treasurer.",
   forbidden: "You don't have permission for this.",
-  aadhaar_missing: "That side of the Aadhaar card hasn't been captured yet.",
+  id_proof_missing: "That side of the ID proof hasn't been captured yet.",
   // The user can't fix a mis-wired field, but retaking produces a fresh key in the right
   // namespace, which does resolve it. `__DEV__` logging for this lives at the call site.
   invalid_media_key: "That image couldn't be attached. Please retake it and save again.",

@@ -4,6 +4,7 @@ import { ChangePinScreen } from "../features/account/ChangePinScreen";
 import { AddCommitteeMemberScreen } from "../features/committee/AddCommitteeMemberScreen";
 import { CommitteeScreen } from "../features/committee/CommitteeScreen";
 import { AddMemberScreen } from "../features/people/AddMemberScreen";
+import { IdProofReplaceScreen } from "../features/people/IdProofReplaceScreen";
 import { PersonEditScreen } from "../features/people/PersonEditScreen";
 import { PersonProfileScreen } from "../features/people/PersonProfileScreen";
 import { ShopAddPersonScreen } from "../features/shops/ShopAddPersonScreen";
@@ -56,6 +57,11 @@ export function AppStack() {
         name="PersonEdit"
         component={PersonEditScreen}
         options={{ presentation: "modal", title: "Edit member" }}
+      />
+      <Stack.Screen
+        name="IdProofReplace"
+        component={IdProofReplaceScreen}
+        options={{ presentation: "modal", title: "Replace ID proof" }}
       />
       <Stack.Screen
         name="AddMember"

@@ -1,4 +1,14 @@
-import { countLine, formatDate, formatDateTime, initials, roleLabel, tenancyLabel, titleCase } from "../format";
+import {
+  countLine,
+  formatDate,
+  formatDateTime,
+  idProofLabel,
+  idProofSummary,
+  initials,
+  roleLabel,
+  tenancyLabel,
+  titleCase
+} from "../format";
 
 describe("formatDate", () => {
   it("renders DD MMM YYYY (§11)", () => {
@@ -62,8 +72,30 @@ describe("enum labels", () => {
     expect(roleLabel("STAFF")).toBe("Staff");
   });
 
+  it("uses the collector's wording for ID proofs, which titleCase cannot produce", () => {
+    // titleCase mangles three of the five, which is why the map exists at all.
+    expect(idProofLabel("PAN")).toBe("PAN CARD"); // titleCase gives "Pan"
+    expect(idProofLabel("VOTER_ID")).toBe("VOTER ID"); // titleCase gives "Voter Id"
+    // The wire value is American; the label an Indian collector reads is not.
+    expect(idProofLabel("DRIVING_LICENSE")).toBe("DRIVING LICENCE");
+    expect(idProofLabel("AADHAAR")).toBe("AADHAAR");
+    expect(idProofLabel("PASSPORT")).toBe("PASSPORT");
+  });
+
+  it("degrades a type it doesn't know rather than rendering undefined", () => {
+    // A sixth value added server-side must still read as something.
+    expect(idProofLabel("RATION_CARD")).toBe("RATION CARD");
+  });
+
+  it("masks the last four beside the type, and omits it when unrecorded", () => {
+    // A bare "••••4567" is no longer safe to read as an Aadhaar.
+    expect(idProofSummary("PASSPORT", "4567")).toBe("PASSPORT ••••4567");
+    expect(idProofSummary("PAN", "234F")).toBe("PAN CARD ••••234F");
+    expect(idProofSummary("VOTER_ID", null)).toBe("VOTER ID");
+  });
+
   it("titleCase expands underscores", () => {
-    expect(titleCase("AADHAAR_FRONT")).toBe("Aadhaar Front");
+    expect(titleCase("ID_PROOF_FRONT")).toBe("Id Proof Front");
   });
 });
 

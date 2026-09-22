@@ -1,6 +1,7 @@
 import { request } from "./client";
 import type {
   AddShopLinkRequest,
+  Id,
   Paged,
   RegisterShopRequest,
   ShopDetail,
@@ -22,7 +23,7 @@ export const shopsApi = {
     return request<Paged<ShopListItem>>("/shops", { query: { query, lane, page, size } });
   },
 
-  detail(id: string) {
+  detail(id: Id) {
     return request<ShopDetail>(`/shops/${id}`);
   },
 
@@ -36,12 +37,12 @@ export const shopsApi = {
   },
 
   /** All four fields are sent every time (integration doc §5.3). 409 on a taken number. */
-  update(id: string, body: UpdateShopRequest) {
+  update(id: Id, body: UpdateShopRequest) {
     return request<ShopDetail>(`/shops/${id}`, { method: "PATCH", body });
   },
 
   /** Admin only. Soft-deletes and unlinks everyone at the shop. */
-  remove(id: string) {
+  remove(id: Id) {
     return request<void>(`/shops/${id}`, { method: "DELETE" });
   },
 
@@ -49,7 +50,7 @@ export const shopsApi = {
    * Add a renter or staff member. RENTER/STAFF only — an OWNER role here is a 400
    * `owner_not_addable`. 409 `renter_exists` when a renter already holds the shop.
    */
-  addLink(id: string, body: AddShopLinkRequest) {
+  addLink(id: Id, body: AddShopLinkRequest) {
     return request<ShopDetail>(`/shops/${id}/links`, { method: "POST", body });
   },
 
@@ -57,7 +58,7 @@ export const shopsApi = {
    * Admin only. Replaces the licence holder and stamps the former holder plus the date.
    * `tillDate` defaults to today. Past contributions stay with the former holder (v2).
    */
-  transfer(id: string, body: TransferRequest) {
+  transfer(id: Id, body: TransferRequest) {
     return request<ShopDetail>(`/shops/${id}/transfer`, { method: "POST", body });
   }
 };
@@ -67,7 +68,7 @@ export const linksApi = {
    * Admin only. Removes a RENTER or STAFF link. An OWNER link is a 400
    * `owner_not_removable` — the licence changes through transfer, never removal.
    */
-  remove(linkId: string) {
+  remove(linkId: Id) {
     return request<void>(`/links/${linkId}`, { method: "DELETE" });
   }
 };

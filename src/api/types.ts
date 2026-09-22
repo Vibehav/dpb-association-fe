@@ -10,6 +10,16 @@
  * Optional fields are typed `| null` because that is what Jackson serialises.
  */
 
+/**
+ * Every entity id on the wire.
+ *
+ * Server-issued `bigint`s, serialised as JSON numbers (`"id": 201`). They were UUID strings
+ * until 2026-09-17; see the API's `docs/id-bigint-migration-plan.md`. Values stay far inside
+ * `Number.MAX_SAFE_INTEGER`, so no string handling is needed — but keep the alias rather than
+ * writing `number` inline, so a future change is one line.
+ */
+export type Id = number;
+
 // ---------------------------------------------------------------------------
 // enums
 // ---------------------------------------------------------------------------
@@ -33,8 +43,34 @@ export type LinkRole = "OWNER" | "RENTER" | "STAFF";
 export type LinkableRole = Extract<LinkRole, "RENTER" | "STAFF">;
 export const LINKABLE_ROLES: LinkableRole[] = ["RENTER", "STAFF"];
 
-export type MediaType = "PHOTO" | "AADHAAR_FRONT" | "AADHAAR_BACK";
-export type AadhaarSide = "FRONT" | "BACK";
+/**
+ * The government ID the association holds a copy of. Mirrors the API's `IdProofType`.
+ *
+ * `DRIVING_LICENSE` is the API's spelling and it is American. **Do not "correct" it** — it
+ * is the wire value, and an unknown string is a 400 `validation_error` because Jackson
+ * cannot deserialise it. The *display* spelling is Indian English; see `idProofLabel`.
+ */
+export type IdProofType = "AADHAAR" | "DRIVING_LICENSE" | "PASSPORT" | "VOTER_ID" | "PAN";
+
+/** Picker order: Aadhaar first, because it is what all but a handful of members present. */
+export const ID_PROOF_TYPES: IdProofType[] = [
+  "AADHAAR",
+  "DRIVING_LICENSE",
+  "PASSPORT",
+  "VOTER_ID",
+  "PAN"
+];
+
+/**
+ * `ID_PROOF_FRONT` and `ID_PROOF_BACK` map to the **same** `id-proofs/` prefix server-side,
+ * so the API cannot catch a front/back mix-up — only a photo key used as an ID-proof key or
+ * vice versa (400 `invalid_media_key`). Wiring each capture slot to the right value is
+ * therefore entirely this client's responsibility.
+ */
+export type MediaType = "PHOTO" | "ID_PROOF_FRONT" | "ID_PROOF_BACK";
+
+/** Case-sensitive on the wire: it is a path segment bound by Spring's default converter. */
+export type IdProofSide = "FRONT" | "BACK";
 export type OtpPurpose = "FIRST_LOGIN" | "PIN_RESET";
 
 // ---------------------------------------------------------------------------
@@ -67,7 +103,7 @@ export type PhoneCheckResponse = {
 export type ResetTokenResponse = { resetToken: string };
 
 export type Me = {
-  id: string;
+  id: Id;
   name: string;
   role: Role;
 };
@@ -77,7 +113,7 @@ export type Me = {
 // ---------------------------------------------------------------------------
 
 export type ShopListItem = {
-  id: string;
+  id: Id;
   shopNumber: string;
   businessName: string;
   lane: string;
@@ -91,15 +127,15 @@ export type ShopListItem = {
 
 export type PersonAtShop = {
   /** Target for `DELETE /links/{linkId}`. */
-  linkId: string;
-  personId: string;
+  linkId: Id;
+  personId: Id;
   name: string;
   phone: string;
   role: LinkRole;
 };
 
 export type ShopDetail = {
-  id: string;
+  id: Id;
   shopNumber: string;
   businessName: string;
   lane: string;
@@ -114,7 +150,7 @@ export type ShopDetail = {
 
 /** Exactly one of the two must be set. */
 export type OwnerInput =
-  | { existingPersonId: string; newPerson?: never }
+  | { existingPersonId: Id; newPerson?: never }
   | { newPerson: NewPersonPayload; existingPersonId?: never };
 
 export type RegisterShopRequest = {
@@ -152,15 +188,15 @@ export type ShopListParams = {
 // ---------------------------------------------------------------------------
 
 export type PersonShopLink = {
-  linkId: string;
-  shopId: string;
+  linkId: Id;
+  shopId: Id;
   shopNumber: string;
   businessName: string;
   role: LinkRole;
 };
 
 export type PersonListItem = {
-  id: string;
+  id: Id;
   name: string;
   /** 10 digits, no country code. Format for display; send the digits. */
   phone: string;
@@ -168,12 +204,15 @@ export type PersonListItem = {
 };
 
 export type PersonProfile = {
-  id: string;
+  id: Id;
   name: string;
   phone: string;
   whatsappPhone: string;
   address: string | null;
-  aadhaarLast4: string | null;
+  /** Which ID is on file. Never null — the API's column is `NOT NULL`. */
+  idProofType: IdProofType;
+  /** Last four characters — letters are possible, a PAN ends in one. Null when unrecorded. */
+  idProofLast4: string | null;
   consent: boolean;
   addedByName: string | null;
   /** ISO instant. Times are UTC — present in IST. */
@@ -192,10 +231,20 @@ export type NewPersonPayload = {
   address?: string;
   /** From the upload flow. Mandatory. */
   photoKey: string;
-  /** From the upload flow. Mandatory. */
-  aadhaarFrontKey: string;
-  aadhaarBackKey?: string;
-  aadhaarLast4?: string;
+  /** Which document was captured. Required — null or an unknown value is a 400. */
+  idProofType: IdProofType;
+  /** From the upload flow, captured as `ID_PROOF_FRONT`. Mandatory. */
+  idProofFrontKey: string;
+  /** From the upload flow, `ID_PROOF_BACK`. Optional — a PAN card has no useful back. */
+  idProofBackKey?: string;
+  /**
+   * Optional, exactly 4 letters or digits.
+   *
+   * **Omit the key entirely when blank; never send `""`.** The API's `@Pattern` has no
+   * `@NotBlank` beside it, so an empty string *fails* validation while an absent key is
+   * accepted. This is the one trap in the whole contract.
+   */
+  idProofLast4?: string;
   /** Must be true. */
   consent: boolean;
 };
@@ -203,7 +252,7 @@ export type NewPersonPayload = {
 export type CreatePersonRequest = {
   person: NewPersonPayload;
   /** At least one, and RENTER/STAFF only — an OWNER link here is a 400. */
-  links: { shopId: string; role: LinkableRole }[];
+  links: { shopId: Id; role: LinkableRole }[];
 };
 
 export type UpdatePersonRequest = {
@@ -213,7 +262,23 @@ export type UpdatePersonRequest = {
   address?: string;
 };
 
-export type AddPersonLinkRequest = { shopId: string; role: LinkableRole };
+export type AddPersonLinkRequest = { shopId: Id; role: LinkableRole };
+
+/**
+ * Body of `PUT /people/{id}/id-proof` — a **whole-document** replace, and the only way to
+ * change the type.
+ *
+ * Every field is written unconditionally server-side: an omitted `backKey` **clears** the
+ * stored back image and an omitted `last4` **wipes** it to null. There is no partial update
+ * here; send the document as it should end up.
+ */
+export type IdProofReplaceRequest = {
+  type: IdProofType;
+  frontKey: string;
+  backKey?: string;
+  /** Omit when blank — `""` is a 400, see `NewPersonPayload.idProofLast4`. */
+  last4?: string;
+};
 
 export type PeopleListParams = {
   query?: string;
@@ -245,7 +310,7 @@ export type SignedUrlResponse = {
 // ---------------------------------------------------------------------------
 
 export type CommitteeMember = {
-  id: string;
+  id: Id;
   name: string;
   phone: string;
   /** Used for first-login and M-PIN reset codes. */

@@ -23,8 +23,10 @@ prefer what's here over guessing an endpoint or a rule.
   list data on screen focus so a role change/removal reflects quickly.
 - **Images:** never upload bytes to our API. Get a presigned URL, `PUT` the file straight to
   storage, then send the returned **key** in the person payload.
-- **Aadhaar:** admin-only to view; collectors capture but can never view it again. Enforce in
-  UI, but the server enforces too (403).
+- **ID proof:** any one of five documents (`AADHAAR`, `DRIVING_LICENSE`, `PASSPORT`,
+  `VOTER_ID`, `PAN`). Admin-only to view; collectors capture and may re-shoot a side, but can
+  never view it again and can no longer change *which* document is on file. Enforce in UI, but
+  the server enforces too (403).
 
 ---
 
@@ -40,7 +42,7 @@ prefer what's here over guessing an endpoint or a rule.
 - **Secure storage:** `expo-secure-store` or `react-native-keychain` for the refresh token
   (and access token). Never store the PIN on device.
 - **Forms:** react-hook-form + a small validation layer mirroring the server rules below.
-- **Camera/media:** `expo-image-picker` / `expo-camera` to capture photos and Aadhaar images.
+- **Camera/media:** `expo-image-picker` / `expo-camera` to capture photos and ID-proof images.
 
 ---
 
@@ -123,13 +125,16 @@ Gate visibility of buttons/screens by role, but treat the server as authoritativ
 | Capability | Admin | Collector | Viewer |
 |---|:--:|:--:|:--:|
 | Read shops & people (list, detail, profile) | ✅ | ✅ | ✅ |
-| Register / edit shops & people; add renter/staff; capture photo/Aadhaar | ✅ | ✅ | — |
+| Register / edit shops & people; add renter/staff; capture photo/ID proof | ✅ | ✅ | — |
 | Transfer licence; remove a link; soft-delete a shop/person | ✅ | — | — |
-| View a stored Aadhaar image | ✅ | — | — |
+| Re-take one side of an ID proof (same document) | ✅ | ✅ | — |
+| View a stored ID-proof image | ✅ | — | — |
+| Change **which** document is on file | ✅ | — | — |
+| Read the ID-proof access log | ✅ | — | — |
 | Committee management (add/role/reset-PIN/remove members) | ✅ | — | — |
 
 Design mapping: hide "+ Register new shop", "+ Add a member", Edit, "Record a contribution"
-(v2 anyway) for viewers; show Transfer / Delete / Aadhaar-image / Committee only for admins.
+(v2 anyway) for viewers; show Transfer / Delete / ID-proof-image / Committee only for admins.
 
 ---
 
@@ -203,7 +208,7 @@ Two-step flow matching the design:
      "owner": { "existingPersonId": "<uuid>" } }
    ```
    or, for a new owner, `"owner": { "newPerson": { …member fields… } }` (member fields in §5.8).
-   For a new owner you'll run the **member form (incl. photo + Aadhaar capture)** as "step 2 of 2"
+   For a new owner you'll run the **member form (incl. photo + ID-proof capture)** as "step 2 of 2"
    and put the resulting S3 keys into `newPerson`.
 - 409 → duplicate shop number.
 
@@ -241,19 +246,23 @@ form:
 **Add member (standalone)** → `POST /people`:
 ```json
 { "person": { "name": "…", "phone": "9820000000", "whatsappPhone": "9820000000",
-              "address": "…", "photoKey": "<key>", "aadhaarFrontKey": "<key>",
-              "aadhaarBackKey": "<key?>", "aadhaarLast4": "1234?", "consent": true },
+              "address": "…", "photoKey": "<key>",
+              "idProofType": "PASSPORT", "idProofFrontKey": "<key>",
+              "idProofBackKey": "<key?>", "idProofLast4": "234F?", "consent": true },
   "links": [ { "shopId": "<uuid>", "role": "STAFF" } ] }
 ```
 - **At least one link is required, and only `RENTER`/`STAFF`** (an `OWNER` link here → 400).
   Owners are only created via shop registration or transfer.
-- `photoKey` and `aadhaarFrontKey` come from the upload flow (§6). `whatsappPhone` defaults to
-  `phone` if omitted. `consent` must be `true`.
+- `photoKey` and `idProofFrontKey` come from the upload flow (§6). `idProofType` is **required**.
+  `whatsappPhone` defaults to `phone` if omitted. `consent` must be `true`.
+- `idProofLast4` is **4 alphanumerics**, not 4 digits — a PAN ends in a letter (`ABCDE1234F` →
+  `234F`). **Omit the key when blank; never send `""`** — the server's `@Pattern` has no
+  `@NotBlank` beside it, so an empty string is a 400 while an absent key is accepted.
 - 409 → duplicate phone.
 
 **Member profile** → `GET /people/{id}` → `PersonProfileResponse`:
-`{ id, name, phone, whatsappPhone, address, aadhaarLast4, consent, addedByName, addedOn,
-   photoUrl, shops[] }`.
+`{ id, name, phone, whatsappPhone, address, idProofType, idProofLast4, consent, addedByName,
+   addedOn, photoUrl, shops[] }`.
 - Header: name, roles/shops, **Edit** (admin/collector).
 - **Member photo:** use `photoUrl` (a short-lived signed URL) directly in `<Image>`. **Retake**
   → capture → `PUT /people/{id}/photo { key }`.
@@ -262,13 +271,24 @@ form:
   Unlink a renter/staff → `DELETE /links/{linkId}` (admin).
 - **Details:** phone, WhatsApp, address, "Added on {addedOn} · by {addedByName}". Call/WhatsApp
   are device actions (dialer / wa.me).
-- **Aadhaar on file:**
-  - **Admin:** fetch `GET /people/{id}/aadhaar/FRONT` (and `/BACK`) → `{ url }`, show the image.
-    Every view is logged server-side. `PUT /people/{id}/aadhaar { side, key }` to re-capture.
-  - **Collector/Viewer:** show a **blurred/locked** placeholder with "Aadhaar is visible to the
-    admin only" (do not call the endpoint — it returns 403). Collectors may still **re-capture**
-    (`PUT`), but never view.
-  - Show `aadhaarLast4` and the capture info (addedBy/on) regardless.
+- **ID proof on file:** show it as `{type} ••••{last4}` — a bare "••••4567" is no longer safe to
+  read as an Aadhaar. `idProofLast4` may be null; `idProofType` never is.
+  - **Admin:** fetch `GET /people/{id}/id-proof/{FRONT|BACK}` → `{ url }`, show the image. Every
+    view is logged server-side. The `{side}` path segment is **case-sensitive** — `/front` is a
+    400.
+  - **Collector/Viewer:** show a **blurred/locked** placeholder with "ID proof is visible to the
+    admin only" (do not call the endpoint — it returns 403).
+  - **Re-take one side** (admin, collector): `PUT /people/{id}/id-proof/{side} { key }` → 204.
+    The type is untouched, so a front and back can never come from two different documents.
+  - **Change the document** (**admin only**): `PUT /people/{id}/id-proof
+    { type, frontKey, backKey?, last4? }` → 204. **Whole-document replace:** every field is
+    written unconditionally, so an omitted `backKey` clears the stored back and an omitted
+    `last4` wipes it. The client holds only signed URLs, never keys, so the existing back key
+    *cannot* be resent — a replace always re-captures the whole document. A collector reaching
+    this gets 403 `forbidden`; tell them to ask an admin rather than showing the raw message.
+  - **Access log** (admin only): `GET /people/{id}/id-proof/log` → who viewed or re-captured,
+    newest first. Not yet built on the client — see `v1/12-open-gaps.md` §4a.
+  - Show the type, `idProofLast4` and the capture info (addedBy/on) regardless.
 - **Edit** → `PATCH /people/{id} { name, phone, whatsappPhone, address }` (409 on dup phone).
 - **Delete** (admin) → `DELETE /people/{id}` (soft; unlinks).
 - **Omit** the contribution history and "Record a contribution" (v2).
@@ -298,18 +318,23 @@ form:
 
 ---
 
-## 6. Image capture & upload (photos + Aadhaar)
+## 6. Image capture & upload (photos + ID proofs)
 
 The API never receives image bytes. For each image:
-1. `POST /media/upload-url { type }` where `type` ∈ `PHOTO` | `AADHAAR_FRONT` | `AADHAAR_BACK`
+1. `POST /media/upload-url { type }` where `type` ∈ `PHOTO` | `ID_PROOF_FRONT` | `ID_PROOF_BACK`
    → `{ key, uploadUrl, expiresInSeconds }`.
 2. `PUT` the file bytes to `uploadUrl` directly (no auth header — the URL is pre-signed). In RN,
    read the captured file and `fetch(uploadUrl, { method: 'PUT', body: <blob/bytes>, headers: { 'Content-Type': 'image/jpeg' } })`.
-3. Keep the returned `key`. Submit it in the person payload (`photoKey` / `aadhaarFrontKey` /
-   `aadhaarBackKey`) or in a retake/re-capture `PUT`.
+3. Keep the returned `key`. Submit it in the person payload (`photoKey` / `idProofFrontKey` /
+   `idProofBackKey`) or in a retake/re-capture `PUT`.
+- **`ID_PROOF_FRONT` and `ID_PROOF_BACK` share the `id-proofs/` prefix**, so the server cannot
+  catch a front/back mix-up — only a photo key used as an ID-proof key, or vice versa (400
+  `invalid_media_key`). Wiring each capture slot to the right type is the client's job alone.
+- **Superseded images are deleted.** Every replace queues the old key for removal by a sweeper,
+  so a cached signed URL becomes a permanent 404. Drop cached URLs after any re-capture.
 - **Order matters:** capture + upload all images while filling the form, then submit the final
   create with the keys. The upload URL expires (~5 min), so don't fetch it too early.
-- **Viewing:** `GET /people/{id}/photo` (any role) and `GET /people/{id}/aadhaar/{side}` (admin)
+- **Viewing:** `GET /people/{id}/photo` (any role) and `GET /people/{id}/id-proof/{side}` (admin)
   return short-lived signed `url`s to load into `<Image>`.
 
 ---
@@ -328,8 +353,8 @@ ShopDetail         { id, shopNumber, businessName, lane, tenancy, formerHolderNa
 PersonAtShop       { linkId, personId, name, phone, role }   // role: OWNER|RENTER|STAFF
 
 PersonListItem     { id, name, phone, shops: PersonShopLink[] }
-PersonProfile      { id, name, phone, whatsappPhone, address, aadhaarLast4, consent,
-                     addedByName, addedOn, photoUrl, shops: PersonShopLink[] }
+PersonProfile      { id, name, phone, whatsappPhone, address, idProofType, idProofLast4,
+                     consent, addedByName, addedOn, photoUrl, shops: PersonShopLink[] }
 PersonShopLink     { linkId, shopId, shopNumber, businessName, role }
 
 CommitteeMember    { id, name, phone, role, active, pinSet, removedAt }
@@ -356,8 +381,10 @@ Validate before submitting to give instant feedback; the server enforces the sam
   `duplicate_shop_number`). Trim before sending.
 - **Business name, name:** required (non-blank).
 - **Consent:** must be ticked (`consent=true`) — mandatory to save a member.
-- **Photo + Aadhaar front:** mandatory for a new member (upload first, then submit the key).
-  Aadhaar back + last-4 are optional.
+- **Photo + ID-proof front:** mandatory for a new member (upload first, then submit the key), as
+  is `idProofType`. ID-proof back + last-4 are optional.
+- **Last-4 is alphanumeric** (`[A-Za-z0-9]{4}`), not digits. Don't use a number pad — a PAN's
+  last four contain a letter.
 - **Link role from a shop / standalone add:** `RENTER` or `STAFF` only (never `OWNER`).
 
 ---
@@ -373,8 +400,12 @@ Validate before submitting to give instant feedback; the server enforces the sam
 - **Soft-delete** hides shops/people (recoverable) and **frees the number/phone** for a new
   record — so a "duplicate" error can legitimately be resolved by an admin restoring/deleting.
   Prefer **Edit** for fixing a typo; use delete only when a record shouldn't exist.
-- **Aadhaar is the strictest data:** collectors capture but can never view it again; only admins
-  view, and every view is logged. Don't even call the Aadhaar GET as a non-admin.
+- **The ID proof is the strictest data:** collectors capture but can never view it again; only
+  admins view, and every view is logged. Don't even call the ID-proof GET as a non-admin. Only
+  an admin may change *which* document is on file.
+- **The type is the only record of what the image is.** The server stores a JPEG and cannot tell
+  an Aadhaar from a passport. If the type changes mid-form, clear the captured images and the
+  last-4 — this client is the only place a passport is stopped from being filed as an Aadhaar.
 - **Removed committee member:** cannot sign in; `POST /auth/phone` returns `onCommittee=false`
   for them, and their number can be re-added.
 
@@ -421,7 +452,7 @@ offline mode). Show a clear error and a retry.
 2. **Shops**: list/search/paginate → detail → register (with owner) → edit → add link →
    transfer → delete.
 3. **People/media**: upload flow first; then add (standalone) → list/search → profile (photo +
-   Aadhaar gating) → edit → link → delete.
+   ID-proof gating) → edit → link → delete.
 4. **Account + Committee** (admin): identity, change-PIN, sign-out; committee list/add/role/
    reset/remove.
 5. **Home**: light landing with counts + shortcuts.

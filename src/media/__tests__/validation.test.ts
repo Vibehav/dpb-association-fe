@@ -49,8 +49,8 @@ describe("imageFieldError", () => {
   });
 
   it("uses the label it is given, so each slot names itself", () => {
-    expect(imageFieldError(slot({ status: "empty" }), "The Aadhaar front")).toBe(
-      "The Aadhaar front is required."
+    expect(imageFieldError(slot({ status: "empty" }), "The ID proof front")).toBe(
+      "The ID proof front is required."
     );
   });
 });

@@ -1,5 +1,5 @@
 import type { NavigatorScreenParams } from "@react-navigation/native";
-import type { OtpPurpose } from "../api";
+import type { Id, OtpPurpose } from "../api";
 
 /**
  * Typed route params.
@@ -26,15 +26,17 @@ export type MainTabsParamList = {
 export type AppStackParamList = {
   Tabs: NavigatorScreenParams<MainTabsParamList>;
   Account: undefined;
-  ShopDetail: { shopId: string };
+  ShopDetail: { shopId: Id };
   /** No `shopId` means register a new shop; with one, edit that shop. */
-  ShopForm: { shopId?: string } | undefined;
+  ShopForm: { shopId?: Id } | undefined;
   /** Link a renter or staff member — existing, or created inline. */
-  ShopAddPerson: { shopId: string };
+  ShopAddPerson: { shopId: Id };
   /** Admin only. Replace the licence holder. */
-  ShopTransfer: { shopId: string };
-  PersonProfile: { personId: string };
-  PersonEdit: { personId: string };
+  ShopTransfer: { shopId: Id };
+  PersonProfile: { personId: Id };
+  PersonEdit: { personId: Id };
+  /** Swap the whole ID proof — the only way to change its type. Admin or collector. */
+  IdProofReplace: { personId: Id };
   /** Standalone add — opens on the search sheet, not the form. */
   AddMember: undefined;
   /** Your own M-PIN: OTP → new PIN, the same flow as a forgotten one. */

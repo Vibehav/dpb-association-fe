@@ -48,7 +48,7 @@ export function PeopleListScreen() {
     <SafeAreaView style={styles.safe} edges={["bottom"]}>
       <FlatList
         data={people}
-        keyExtractor={(person) => person.id}
+        keyExtractor={(person) => String(person.id)}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         refreshing={list.isRefetching}

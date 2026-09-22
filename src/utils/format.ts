@@ -35,6 +35,40 @@ export function titleCase(value: string) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+/**
+ * ID proof in the words a collector uses, in capitals like the rest of the record.
+ *
+ * Not `titleCase`, which mangles three of the five: it gives "Pan" and "Voter Id", and it
+ * keeps the API's American "License". Note the deliberate split — `DRIVING_LICENSE` is the
+ * wire value and must stay American, while "DRIVING LICENCE" is what an Indian collector
+ * reads. Changing either one to match the other breaks something.
+ *
+ * Typed `string` rather than `IdProofType`, like `tenancyLabel`, so a sixth value added
+ * server-side degrades to readable text instead of rendering `undefined`.
+ */
+export function idProofLabel(type: string) {
+  switch (type) {
+    case "AADHAAR":
+      return "AADHAAR";
+    case "DRIVING_LICENSE":
+      return "DRIVING LICENCE";
+    case "PASSPORT":
+      return "PASSPORT";
+    case "VOTER_ID":
+      return "VOTER ID";
+    case "PAN":
+      return "PAN CARD";
+    default:
+      return titleCase(type).toUpperCase();
+  }
+}
+
+/** "PASSPORT ••••4567", or just the label when the last four were never recorded. */
+export function idProofSummary(type: string, last4: string | null) {
+  const label = idProofLabel(type);
+  return last4 ? `${label} ••••${last4}` : label;
+}
+
 /** "RENTER" → "Renter". Enum labels that are a single word. */
 export function roleLabel(role: string) {
   return titleCase(role);

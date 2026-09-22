@@ -1,8 +1,10 @@
 import { request } from "./client";
 import type {
-  AadhaarSide,
   AddPersonLinkRequest,
   CreatePersonRequest,
+  Id,
+  IdProofReplaceRequest,
+  IdProofSide,
   Paged,
   PeopleListParams,
   PersonListItem,
@@ -20,7 +22,7 @@ export const peopleApi = {
     return request<Paged<PersonListItem>>("/people", { query: { query, role, page, size } });
   },
 
-  detail(id: string) {
+  detail(id: Id) {
     return request<PersonProfile>(`/people/${id}`);
   },
 
@@ -32,17 +34,17 @@ export const peopleApi = {
     return request<PersonProfile>("/people", { method: "POST", body });
   },
 
-  update(id: string, body: UpdatePersonRequest) {
+  update(id: Id, body: UpdatePersonRequest) {
     return request<PersonProfile>(`/people/${id}`, { method: "PATCH", body });
   },
 
   /** Link another shop. Additive — the person keeps every existing link. */
-  addLink(id: string, body: AddPersonLinkRequest) {
+  addLink(id: Id, body: AddPersonLinkRequest) {
     return request<PersonProfile>(`/people/${id}/links`, { method: "POST", body });
   },
 
   /** Admin only. Soft-deletes and unlinks. */
-  remove(id: string) {
+  remove(id: Id) {
     return request<void>(`/people/${id}`, { method: "DELETE" });
   },
 
@@ -50,28 +52,48 @@ export const peopleApi = {
    * Fresh signed photo URL. The profile response already carries one, so this is only
    * needed to refresh after a retake or once the embedded URL has expired.
    */
-  photoUrl(id: string) {
+  photoUrl(id: Id) {
     return request<SignedUrlResponse>(`/people/${id}/photo`);
   },
 
   /** Retake. `key` comes from the upload flow. */
-  updatePhoto(id: string, key: string) {
+  updatePhoto(id: Id, key: string) {
     return request<void>(`/people/${id}/photo`, { method: "PUT", body: { key } });
   },
 
   /**
-   * **Admin only, and every call is logged server-side** as an Aadhaar view against the
-   * acting user. Never call this as a collector or viewer — it returns 403, and the
-   * attempt is pointless: the UI shows a locked placeholder instead (integration doc §9).
+   * **Admin only, and every call writes a VIEW row to `id_proof_access_log`** against the
+   * acting user. Never call this as a collector or viewer — the rule is not to call it at
+   * all, not to call it and handle the 403 (integration doc §9).
    *
-   * 404 `aadhaar_missing` when that side was never captured.
+   * `side` is a path segment bound by Spring's *default* enum converter, so it is
+   * case-sensitive: `/id-proof/FRONT` is a 200 and `/id-proof/front` is a 400
+   * `validation_error`. `IdProofSide` is already uppercase — never lowercase it here.
+   *
+   * 404 `id_proof_missing` when that side was never captured.
    */
-  aadhaarUrl(id: string, side: AadhaarSide) {
-    return request<SignedUrlResponse>(`/people/${id}/aadhaar/${side}`);
+  idProofUrl(id: Id, side: IdProofSide) {
+    return request<SignedUrlResponse>(`/people/${id}/id-proof/${side}`);
   },
 
-  /** Re-capture. Collectors may replace an unclear copy; they still cannot view it. */
-  updateAadhaar(id: string, side: AadhaarSide, key: string) {
-    return request<void>(`/people/${id}/aadhaar`, { method: "PUT", body: { side, key } });
+  /**
+   * Re-capture one side within the current document. Collectors may replace an unclear
+   * copy; they still cannot view it. The type is untouched — deliberate, so a front and a
+   * back can never come from two different documents. 204, no body.
+   *
+   * Note the side moved from the body into the **path** in the ID-proof refactor.
+   */
+  updateIdProofSide(id: Id, side: IdProofSide, key: string) {
+    return request<void>(`/people/${id}/id-proof/${side}`, { method: "PUT", body: { key } });
+  },
+
+  /**
+   * Full replace — the only way to change the document type. 204, no body.
+   *
+   * Destructive by design: an omitted `backKey` clears the stored back image and an omitted
+   * `last4` wipes it. See `IdProofReplaceRequest`.
+   */
+  replaceIdProof(id: Id, body: IdProofReplaceRequest) {
+    return request<void>(`/people/${id}/id-proof`, { method: "PUT", body });
   }
 };

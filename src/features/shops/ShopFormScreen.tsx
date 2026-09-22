@@ -44,9 +44,9 @@ export function ShopFormScreen({ navigation, route }: Props) {
   const shopId = route.params?.shopId;
   const editing = Boolean(shopId);
 
-  const existing = useShop(shopId ?? "");
+  const existing = useShop(shopId ?? 0);
   const register = useRegisterShop();
-  const update = useUpdateShop(shopId ?? "");
+  const update = useUpdateShop(shopId ?? 0);
 
   const [step, setStep] = useState<"shop" | "owner">("shop");
   const [shopNumber, setShopNumber] = useState("");
@@ -297,7 +297,7 @@ export function ShopFormScreen({ navigation, route }: Props) {
 /** Prototype `nextStepNote` — tells the user what "continue" is about to do. */
 function nextStepNote(mode: HolderMode | null, owner: PersonListItem | null) {
   if (!mode) return "A shop always has exactly one licence holder.";
-  if (mode === "new") return "Next: their name, photo, phone, address and Aadhaar.";
+  if (mode === "new") return "Next: their name, photo, phone, address and ID proof.";
   if (!owner) return "Search an existing member by name or phone number.";
   return `${owner.name} will hold the licence for this shop.`;
 }

@@ -1,14 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { LINKABLE_ROLES, type LinkableRole } from "../../../api";
+import { LINKABLE_ROLES, type Id, type LinkableRole } from "../../../api";
 import { ShopPicker } from "../../../components/search/ShopPicker";
 import { Button, Card, Chip, ChipRow } from "../../../components/ui";
 import { colors, spacing, typography } from "../../../theme";
 import { roleLabel } from "../../../utils/format";
 
 export type PickedLink = {
-  shopId: string;
+  shopId: Id;
   shopNumber: string;
   businessName: string;
   role: LinkableRole;

@@ -19,8 +19,8 @@
       "bundleIdentifier": "com.marketassociation.records",
       "buildNumber": "1",
       "infoPlist": {
-        "NSCameraUsageDescription": "Capture member photos and Aadhaar images for the association's register.",
-        "NSPhotoLibraryUsageDescription": "Attach member photos and Aadhaar images from your library."
+        "NSCameraUsageDescription": "Capture member photos and ID-proof images for the association's register.",
+        "NSPhotoLibraryUsageDescription": "Attach member photos and ID-proof images from your library."
       }
     },
     "android": {
@@ -39,8 +39,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Market Association to attach member photos, Aadhaar images and bill photos.",
-          "cameraPermission": "Allow Market Association to capture member photos, Aadhaar images and bill photos."
+          "photosPermission": "Allow Market Association to attach member photos, ID-proof images and bill photos.",
+          "cameraPermission": "Allow Market Association to capture member photos, ID-proof images and bill photos."
         }
       ],
       "expo-asset"

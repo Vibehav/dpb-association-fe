@@ -86,11 +86,11 @@ export function AccountScreen() {
 /** Plain-language statement per role, from the capability table in integration doc §3. */
 const RIGHTS: Record<Role, string> = {
   ADMIN:
-    "You can do everything in the register: register and edit shops and members, add renters and staff, transfer a licence, and remove records. You can open a stored Aadhaar image — every view is logged — and you manage who is on the committee.",
+    "You can do everything in the register: register and edit shops and members, add renters and staff, transfer a licence, and remove records. You can open a stored ID-proof image — every view is logged — and you manage who is on the committee.",
   COLLECTOR:
-    "You can register and edit shops and members, add renters and staff, and capture member photos and Aadhaar copies. You cannot open a stored Aadhaar image once it is captured, transfer a licence, or remove a record.",
+    "You can register and edit shops and members, add renters and staff, and capture member photos and ID-proof copies. You cannot open a stored ID-proof image once it is captured, transfer a licence, or remove a record.",
   VIEWER:
-    "You can read the register — shops, members, and the role each person holds at each shop. You cannot add or change anything, and you cannot open stored Aadhaar images."
+    "You can read the register — shops, members, and the role each person holds at each shop. You cannot add or change anything, and you cannot open stored ID-proof images."
 };
 
 const styles = StyleSheet.create({

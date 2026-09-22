@@ -19,7 +19,7 @@ type Props = NativeStackScreenProps<AppStackParamList, "AddMember">;
  *
  * The duplicate guard is not gone, just quieter: `MemberForm` queries
  * `GET /people?query=<phone>` as the number is typed and warns inline ("X already has this
- * number") before the collector spends time on a photo and an Aadhaar capture. The server
+ * number") before the collector spends time on a photo and an ID-proof capture. The server
  * remains the backstop with `409 duplicate_phone`.
  *
  * To link a person who *is* already on record, open their profile and use

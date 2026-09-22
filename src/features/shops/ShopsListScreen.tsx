@@ -69,7 +69,7 @@ export function ShopsListScreen() {
     <SafeAreaView style={styles.safe} edges={["bottom"]}>
       <FlatList
         data={shops}
-        keyExtractor={(shop) => shop.id}
+        keyExtractor={(shop) => String(shop.id)}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         refreshing={list.isRefetching}

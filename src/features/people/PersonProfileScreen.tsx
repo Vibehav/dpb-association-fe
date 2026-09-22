@@ -22,7 +22,7 @@ import { callNumber, openWhatsApp } from "../../utils/deviceActions";
 import { formatDate, roleLabel } from "../../utils/format";
 import { formatPhone } from "../../utils/phone";
 import { useRemoveLink } from "../shops/hooks";
-import { AadhaarPanel } from "./components/AadhaarPanel";
+import { IdProofPanel } from "./components/IdProofPanel";
 import { MemberPhoto } from "./components/MemberPhoto";
 import { useAddPersonLink, useDeletePerson, usePerson } from "./hooks";
 
@@ -163,7 +163,10 @@ export function PersonProfileScreen({ navigation, route }: Props) {
         </View>
       </Card>
 
-      <AadhaarPanel person={data} />
+      <IdProofPanel
+        person={data}
+        onReplace={() => navigation.navigate("IdProofReplace", { personId })}
+      />
 
       {actionError ? <Banner message={actionError} /> : null}
 

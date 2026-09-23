@@ -119,7 +119,11 @@ export type ShopListItem = {
   businessName: string | null;
   lane: string;
   tenancy: Tenancy;
-  /** A shop always has exactly one owner, but stay defensive at the boundary. */
+  /**
+   * Null on a shop with **no licence holder** — a real state, not just defensiveness. A
+   * member deleted before the API guarded that took their owner link with them, and those
+   * shops stay ownerless until someone transfers into them.
+   */
   licenceHolderName: string | null;
   /** Present only when someone holds a RENTER link. */
   rentedToName: string | null;
@@ -146,7 +150,11 @@ export type ShopDetail = {
   formerHolderName: string | null;
   /** ISO date, `YYYY-MM-DD`. */
   formerHolderTill: string | null;
-  /** Ordered owner, renter, staff. */
+  /**
+   * Ordered owner, renter, staff. **An OWNER row may be absent** on a shop whose holder was
+   * deleted before the API guarded that — and the list can be empty entirely. Find the owner,
+   * never index at 0.
+   */
   people: PersonAtShop[];
 };
 
@@ -186,7 +194,14 @@ export type UpdateShopRequest = {
 /** Add a renter or staff member to a shop — existing person or created inline. */
 export type AddShopLinkRequest = { role: LinkableRole } & OwnerInput;
 
-/** `tillDate` defaults to today server-side. */
+/**
+ * `tillDate` defaults to today server-side.
+ *
+ * Transfer both **moves** the licence and **installs** it: on a shop with no current holder
+ * it simply assigns one, which is the only route back from that state — registration is past
+ * and `addLink` rejects OWNER. Installing into a vacancy leaves `formerHolderName` /
+ * `formerHolderTill` untouched, because nobody was succeeded.
+ */
 export type TransferRequest = OwnerInput & { tillDate?: string };
 
 export type ShopListParams = {

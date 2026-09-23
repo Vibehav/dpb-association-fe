@@ -51,7 +51,13 @@ export const peopleApi = {
     return request<PersonProfile>(`/people/${id}/links`, { method: "POST", body });
   },
 
-  /** Admin only. Soft-deletes and unlinks. */
+  /**
+   * Admin only. Soft-deletes and unlinks.
+   *
+   * **409 `person_is_owner`** when the member still holds a licence — the message names the
+   * shops. Deleting used to strip those owner links silently and leave the shops stranded,
+   * so the licence has to be transferred first. Show `error.message`; it is the actionable part.
+   */
   remove(id: Id) {
     return request<void>(`/people/${id}`, { method: "DELETE" });
   },

@@ -62,6 +62,13 @@ export function PersonProfileScreen({ navigation, route }: Props) {
 
   const data = person.data;
 
+  /**
+   * Shops where this member holds the licence. Deleting them would strip those shops of
+   * their holder, so the API refuses it (409 `person_is_owner`) — the screen says so up
+   * front rather than letting an admin tap Delete and read a rejection.
+   */
+  const licencesHeld = data.shops.filter((shop) => shop.role === "OWNER");
+
   async function run(action: () => Promise<unknown>, after?: () => void) {
     setActionError(null);
     try {
@@ -174,10 +181,33 @@ export function PersonProfileScreen({ navigation, route }: Props) {
       {isAdmin ? (
         <Card>
           <Text style={typography.eyebrow}>Admin</Text>
+          {licencesHeld.length > 0 ? (
+            <>
+              <Banner
+                tone="notice"
+                message={`${data.name} holds the licence on ${licencesHeld
+                  .map((shop) => shop.shopNumber)
+                  .join(", ")}. Transfer ${
+                  licencesHeld.length === 1 ? "it" : "each of them"
+                } to someone else first — a shop cannot be left without a licence holder.`}
+              />
+              {/* Straight to the transfer, so the admin doesn't have to find the shop again. */}
+              {licencesHeld.map((shop) => (
+                <Button
+                  key={shop.linkId}
+                  label={`Transfer licence for ${shop.shopNumber}`}
+                  variant="secondary"
+                  icon="swap-horizontal-outline"
+                  onPress={() => navigation.navigate("ShopTransfer", { shopId: shop.shopId })}
+                />
+              ))}
+            </>
+          ) : null}
           <Button
             label="Delete member"
             variant="danger"
             icon="trash-outline"
+            disabled={licencesHeld.length > 0}
             onPress={() => setConfirmDelete(true)}
           />
         </Card>
@@ -239,7 +269,11 @@ export function PersonProfileScreen({ navigation, route }: Props) {
         loading={deletePerson.isPending}
         destructive
         title={`Delete ${data.name}?`}
-        message="This hides the member and unlinks them from every shop. Their phone number becomes free for a new record. Prefer Edit if you're fixing a typo."
+        // Only reachable when they hold no licence, so "every shop" here means their
+        // renter and staff links — the guarded case never opens this sheet.
+        message={`This hides the member and removes them from ${
+          data.shops.length === 1 ? "the shop they're linked to" : "every shop they're linked to"
+        }. Their phone number becomes free for a new record. Prefer Edit if you're fixing a typo.`}
         confirmLabel="Delete member"
       />
     </Screen>

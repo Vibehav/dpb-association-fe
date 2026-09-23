@@ -21,10 +21,10 @@ describe("the code list", () => {
       "unauthorized", "invalid_token", "wrong_pin", "pin_locked", "pin_not_set",
       "invalid_refresh", "invalid_reset_token", "not_on_committee",
       "otp_invalid", "otp_expired", "otp_attempts_exhausted", "otp_throttled", "otp_send_failed", "no_email_on_file",
-      "duplicate_shop_number", "shop_not_found", "no_owner", "already_owner",
+      "duplicate_shop_number", "shop_not_found", "already_owner",
       "owner_not_addable", "owner_not_removable", "renter_exists", "already_linked",
       "link_not_found", "duplicate_phone", "person_not_found", "person_input",
-      "consent_required", "committee_not_found", "duplicate_email", "nothing_to_update", "self_action", "last_admin",
+      "consent_required", "person_is_owner", "committee_not_found", "duplicate_email", "nothing_to_update", "self_action", "last_admin",
       "id_proof_missing", "invalid_media_key", "media_not_uploaded",
       "forbidden", "validation_error"
     ];
@@ -34,6 +34,23 @@ describe("the code list", () => {
   it("dropped the Aadhaar-era code rather than keeping both", () => {
     // A rename that only *adds* the new code leaves dead branches matching the old one.
     expect(SERVER_ERROR_CODES).not.toContain("aadhaar_missing");
+  });
+
+  it("dropped `no_owner` — transfer now fills a vacancy instead of refusing it", () => {
+    // The API stopped throwing it: an ownerless shop is the one state that most needs a
+    // transfer, so refusing there was the bug. A stale entry here would invite a dead branch.
+    expect(SERVER_ERROR_CODES).not.toContain("no_owner");
+  });
+
+  it("shows the server's own message for `person_is_owner`, which names the shops", () => {
+    // A fixed override would throw away the only part an admin can act on.
+    const e = apiErrorFromBody(
+      409,
+      '{"code":"person_is_owner","message":"Transfer the licence for shop A-30, A-31 before deleting this member"}'
+    );
+    expect(errorMessage(e)).toBe(
+      "Transfer the licence for shop A-30, A-31 before deleting this member"
+    );
   });
 });
 

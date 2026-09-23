@@ -57,6 +57,10 @@ export const shopsApi = {
   /**
    * Admin only. Replaces the licence holder and stamps the former holder plus the date.
    * `tillDate` defaults to today. Past contributions stay with the former holder (v2).
+   *
+   * Also the **only** way to give an ownerless shop a holder: when there is no current
+   * owner it installs one instead of failing, and leaves the former-holder record alone.
+   * The old `409 no_owner` is gone.
    */
   transfer(id: Id, body: TransferRequest) {
     return request<ShopDetail>(`/shops/${id}/transfer`, { method: "POST", body });

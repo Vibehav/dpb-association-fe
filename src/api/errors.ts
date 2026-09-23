@@ -34,7 +34,6 @@ export const SERVER_ERROR_CODES = [
   // --- shops ----------------------------------------------------------------
   "duplicate_shop_number", // 409 · taken among active shops (case-insensitive)
   "shop_not_found", // 404
-  "no_owner", // 409 · transfer attempted on a shop with no active owner link
   "already_owner", // 400 · transfer target already holds the licence
 
   // --- links ----------------------------------------------------------------
@@ -49,6 +48,18 @@ export const SERVER_ERROR_CODES = [
   "person_not_found", // 404
   "person_input", // 400 · owner/existing-person input was malformed or empty
   "consent_required", // 400 · consent must be true to store a member
+  /**
+   * 409 · the member still holds the licence on one or more shops, so deleting them would
+   * strip those shops of their holder. Transfer each licence first.
+   *
+   * **Show `error.message`, not a fixed string** — the server names the shops
+   * ("Transfer the licence for shop A-30, A-31 before deleting this member"), which is the
+   * whole value of the error. That is why there is no `OVERRIDE_MESSAGES` entry below.
+   *
+   * The profile screen blocks the delete before it is attempted, so reaching this is either
+   * a race (a shop registered to them from another device) or a non-profile caller.
+   */
+  "person_is_owner",
 
   // --- committee ------------------------------------------------------------
   "committee_not_found", // 404

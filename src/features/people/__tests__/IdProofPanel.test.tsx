@@ -61,6 +61,8 @@ function asRole(role: "ADMIN" | "COLLECTOR" | "VIEWER") {
     isAdmin,
     canViewIdProof: isAdmin,
     canChangeIdProofType: isAdmin,
+    canCaptureIdProof: canWrite,
+    canRemoveIdProof: isAdmin,
     canManageCommittee: isAdmin
   });
 }
@@ -89,6 +91,62 @@ const renderPanel = (overrides: Partial<PersonProfile> = {}) => {
     wrapper: withQueryClient(client)
   });
 };
+
+/**
+ * A member enrolled before their document was captured — client revision v2.
+ *
+ * The panel must not merely grey itself out here: every per-side endpoint answers a pending
+ * member with a 404 or a 409, so a "Re-capture" or "View front" button on this state is a
+ * button that cannot work. What replaces them is the first capture, which a collector may do.
+ */
+describe("IdProofPanel — pending member, nothing on file", () => {
+  const pending: Partial<PersonProfile> = { idProofType: null, idProofLast4: null };
+
+  it("says nothing is on file, and offers no per-side action to anyone", async () => {
+    asRole("ADMIN");
+    const { getByText, queryByText } = await renderPanel(pending);
+
+    expect(getByText("No ID proof on file")).toBeTruthy();
+    // None of these can succeed against a pending member, so none of them are offered.
+    expect(queryByText("View front")).toBeNull();
+    expect(queryByText("View back")).toBeNull();
+    expect(queryByText("Re-capture")).toBeNull();
+    expect(queryByText("Change document type")).toBeNull();
+    expect(queryByText("Remove ID proof")).toBeNull();
+    expect(idProofUrl).not.toHaveBeenCalled();
+  });
+
+  it("lets a collector capture the first document — this is the point of the change", async () => {
+    asRole("COLLECTOR");
+    const { getByText } = await renderPanel(pending);
+
+    await fireEvent.press(getByText("Capture ID proof"));
+    expect(onReplace).toHaveBeenCalled();
+  });
+
+  it("offers a viewer nothing to press", async () => {
+    asRole("VIEWER");
+    const { queryByText, getByText } = await renderPanel(pending);
+
+    expect(getByText("No ID proof on file")).toBeTruthy();
+    expect(queryByText("Capture ID proof")).toBeNull();
+  });
+});
+
+/** Taking a document off file is admin-only, and it deletes the images. */
+describe("IdProofPanel — removing the document", () => {
+  it("is offered to an admin on a captured member", async () => {
+    asRole("ADMIN");
+    const { getByText } = await renderPanel();
+    expect(getByText("Remove ID proof")).toBeTruthy();
+  });
+
+  it("is not offered to a collector", async () => {
+    asRole("COLLECTOR");
+    const { queryByText } = await renderPanel();
+    expect(queryByText("Remove ID proof")).toBeNull();
+  });
+});
 
 describe("IdProofPanel — collector", () => {
   beforeEach(() => asRole("COLLECTOR"));

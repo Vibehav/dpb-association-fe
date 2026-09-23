@@ -120,6 +120,41 @@ describe("MemberForm — the ID-proof payload", () => {
     expect(onSubmit.mock.calls[0][0]).not.toHaveProperty("idProofLast4");
   });
 
+  it("omits all four ID-proof fields when the member has no document with them", async () => {
+    const onSubmit = jest.fn();
+    const view = await renderForm(onSubmit);
+
+    // Even with a front key sitting ready in the capture slot, turning the section off must
+    // leave every ID-proof field out. The API rejects any half state with a 400 naming
+    // `idProofConsistent`, so "front key but no type" is not a lenient payload — it is a
+    // rejected one, and the member never gets enrolled.
+    await fireEvent.press(view.getByLabelText("The member has their ID proof with them"));
+    await fillAndSubmit(view);
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    const payload = onSubmit.mock.calls[0][0];
+    expect(payload).not.toHaveProperty("idProofType");
+    expect(payload).not.toHaveProperty("idProofFrontKey");
+    expect(payload).not.toHaveProperty("idProofBackKey");
+    expect(payload).not.toHaveProperty("idProofLast4");
+    // The photo and consent are not part of the relaxation — they stay mandatory.
+    expect(payload).toMatchObject({ photoKey: "photos/p.jpg", consent: true });
+  });
+
+  it("still demands a front image while the ID-proof section is on", async () => {
+    const onSubmit = jest.fn();
+    mockSlots.ID_PROOF_FRONT = slot({ status: "empty" });
+    const view = await renderForm(onSubmit);
+
+    await fillAndSubmit(view);
+
+    // Skipping is a deliberate toggle, never an empty capture slot waved through.
+    await waitFor(() =>
+      expect(view.getByText("The aadhaar front is required.")).toBeTruthy()
+    );
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it("omits idProofBackKey when no back was captured", async () => {
     const onSubmit = jest.fn();
     await fillAndSubmit(await renderForm(onSubmit));

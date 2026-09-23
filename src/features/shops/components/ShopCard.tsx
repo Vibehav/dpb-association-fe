@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import type { ShopListItem } from "../../../api";
-import { Card } from "../../../components/ui";
+import { BusinessName, Card } from "../../../components/ui";
+import { shopTitle } from "../../../utils/format";
 import { spacing, typography } from "../../../theme";
 
 /**
@@ -11,13 +12,13 @@ import { spacing, typography } from "../../../theme";
  */
 export function ShopCard({ shop, onPress }: { shop: ShopListItem; onPress: () => void }) {
   return (
-    <Card onPress={onPress} accessibilityLabel={`${shop.shopNumber} ${shop.businessName}`}>
+    <Card onPress={onPress} accessibilityLabel={`${shop.shopNumber} ${shopTitle(shop)}`}>
       <View style={styles.header}>
         <Text style={styles.number}>{shop.shopNumber}</Text>
         <Text style={typography.bodySmall}>{shop.lane}</Text>
       </View>
 
-      <Text style={typography.cardTitle}>{shop.businessName}</Text>
+      <BusinessName businessName={shop.businessName} style={typography.cardTitle} />
 
       <Text style={typography.body}>
         {/* The API guarantees exactly one owner, but don't crash if that ever changes. */}

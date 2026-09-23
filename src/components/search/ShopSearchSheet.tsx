@@ -7,6 +7,7 @@ import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { colors, radii, spacing, typography } from "../../theme";
 import { roleLabel } from "../../utils/format";
 import { Banner } from "../ui/Banner";
+import { BusinessName } from "../ui/BusinessName";
 import { Button } from "../ui/Button";
 import { Chip, ChipRow } from "../ui/Chip";
 import { ErrorState } from "../ui/ErrorState";
@@ -119,7 +120,7 @@ export function ShopSearchSheet({
                 >
                   <Text style={styles.number}>{shop.shopNumber}</Text>
                   <View style={styles.rowText}>
-                    <Text style={typography.cardTitle}>{shop.businessName}</Text>
+                    <BusinessName businessName={shop.businessName} style={typography.cardTitle} />
                     <Text style={typography.bodySmall}>
                       {renterTaken
                         ? `Already rented to ${shop.rentedToName} — add as staff instead`

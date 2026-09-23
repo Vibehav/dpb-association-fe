@@ -58,6 +58,7 @@ const person: PersonProfile = {
 let client: QueryClient;
 let replaceIdProof: jest.SpyInstance;
 const goBack = jest.fn();
+const setOptions = jest.fn();
 
 beforeEach(() => {
   client = testQueryClient();
@@ -84,7 +85,9 @@ async function renderScreen(overrides: Partial<PersonProfile> = {}) {
   }
   const view = render(
     <IdProofReplaceScreen
-      navigation={{ goBack } as never}
+      // `setOptions` too: the screen retitles itself "Capture ID proof" when nothing is on
+      // file, so a mock without it throws before anything renders.
+      navigation={{ goBack, setOptions } as never}
       route={{ key: "k", name: "IdProofReplace", params: { personId: 1 } } as never}
     />,
     { wrapper: withQueryClient(client) }

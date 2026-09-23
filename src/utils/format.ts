@@ -69,6 +69,28 @@ export function idProofSummary(type: string, last4: string | null) {
   return last4 ? `${label} ••••${last4}` : label;
 }
 
+/**
+ * What to show as a shop's title. Falls back to the shop number when no trading name is on
+ * file — optional since client revision v1, because registration often happens before the
+ * name is settled.
+ *
+ * The fallback is not cosmetic: a card with a blank title reads as a loading failure, and the
+ * shop number is the shop's actual identity (unique, case-insensitive, always present) where
+ * the name never was. Use this everywhere a shop is named, so a nameless shop looks the same
+ * in every list.
+ */
+export function shopTitle(shop: { shopNumber: string; businessName: string | null }) {
+  return shop.businessName?.trim() || shop.shopNumber;
+}
+
+/**
+ * True when the shop has no trading name on record. Prefer the `BusinessName` component for
+ * rendering; this is for the cases that need the fact rather than the text.
+ */
+export function hasNoBusinessName(shop: { businessName: string | null }) {
+  return !shop.businessName?.trim();
+}
+
 /** "RENTER" → "Renter". Enum labels that are a single word. */
 export function roleLabel(role: string) {
   return titleCase(role);

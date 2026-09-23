@@ -5,7 +5,9 @@ import {
   idProofLabel,
   idProofSummary,
   initials,
+  hasNoBusinessName,
   roleLabel,
+  shopTitle,
   tenancyLabel,
   titleCase
 } from "../format";
@@ -111,5 +113,33 @@ describe("countLine", () => {
 
   it("uses the singular when the total is one", () => {
     expect(countLine(1, 1, "shop")).toBe("1 of 1 shop shown");
+  });
+});
+
+/**
+ * The trading name became optional in client revision v1, so a shop can arrive with none.
+ * `shopTitle` is what stops a card rendering a blank line, which reads as a loading failure.
+ */
+describe("shopTitle — a shop always has something to be called", () => {
+  it("uses the business name when there is one", () => {
+    expect(shopTitle({ shopNumber: "A-31", businessName: "Shree Traders" })).toBe("Shree Traders");
+  });
+
+  it("falls back to the shop number, which is the shop's real identity", () => {
+    expect(shopTitle({ shopNumber: "A-31", businessName: null })).toBe("A-31");
+  });
+
+  it("treats a whitespace-only name as no name", () => {
+    // The API stores "" and "   " as null, but a stale cache or an in-flight form value can
+    // still hand us one — and " " would render as an empty title.
+    expect(shopTitle({ shopNumber: "A-31", businessName: "   " })).toBe("A-31");
+  });
+});
+
+describe("hasNoBusinessName", () => {
+  it("is true for null and for whitespace, false for a real name", () => {
+    expect(hasNoBusinessName({ businessName: null })).toBe(true);
+    expect(hasNoBusinessName({ businessName: "  " })).toBe(true);
+    expect(hasNoBusinessName({ businessName: "Shree Traders" })).toBe(false);
   });
 });

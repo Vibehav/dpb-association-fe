@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Text } from "react-native";
 import { errorMessage, type PersonListItem, type TransferRequest } from "../../api";
 import { PersonSearchSheet } from "../../components/search/PersonSearchSheet";
-import { Banner, Button, Card, ErrorState, LoadingScreen, Screen } from "../../components/ui";
+import { Banner, BusinessName, Button, Card, ErrorState, LoadingScreen, Screen } from "../../components/ui";
 import type { AppStackParamList } from "../../navigation/types";
 import { typography } from "../../theme";
 import { formatPhone } from "../../utils/phone";
@@ -75,9 +75,8 @@ export function ShopTransferScreen({ navigation, route }: Props) {
   return (
     <Screen>
       <Card>
-        <Text style={typography.cardTitle}>
-          {data.shopNumber} · {data.businessName}
-        </Text>
+        <Text style={typography.cardTitle}>{data.shopNumber}</Text>
+        <BusinessName businessName={data.businessName} style={typography.cardTitle} />
         <Text style={typography.eyebrow}>Current licence holder</Text>
         {currentOwner ? (
           <>

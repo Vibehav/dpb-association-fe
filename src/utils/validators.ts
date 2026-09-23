@@ -50,8 +50,14 @@ export function validateShopNumber(value: string) {
   return value.trim() ? null : "Enter the shop number.";
 }
 
-export function validateBusinessName(value: string) {
-  return value.trim() ? null : "Enter the business name.";
+/**
+ * Always valid: the business name became optional in client revision v1, so a blank one is a
+ * legitimate "not recorded yet" rather than an error. Kept as a function rather than deleted
+ * so the form keeps a single shape for every field, and so re-tightening it later is one
+ * edit here instead of a change to the form's wiring.
+ */
+export function validateBusinessName(_value: string): string | null {
+  return null;
 }
 
 export function validateLane(value: string) {

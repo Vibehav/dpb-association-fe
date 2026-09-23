@@ -17,9 +17,17 @@ import type {
 export const PEOPLE_PAGE_SIZE = 20;
 
 export const peopleApi = {
-  /** `query` matches name, phone or shop number. Omit `role` for "All". */
-  list({ query, role, page = 0, size = PEOPLE_PAGE_SIZE }: PeopleListParams) {
-    return request<Paged<PersonListItem>>("/people", { query: { query, role, page, size } });
+  /**
+   * `query` matches name, phone or shop number. Omit `role` for "All".
+   *
+   * `idProof` is `PENDING` or `CAPTURED` — the pending queue, since client revision v2.
+   * The rows themselves carry no ID-proof field, so this filter is the only way to partition
+   * the register without fetching every profile.
+   */
+  list({ query, role, idProof, page = 0, size = PEOPLE_PAGE_SIZE }: PeopleListParams) {
+    return request<Paged<PersonListItem>>("/people", {
+      query: { query, role, idProof, page, size }
+    });
   },
 
   detail(id: Id) {
@@ -95,5 +103,16 @@ export const peopleApi = {
    */
   replaceIdProof(id: Id, body: IdProofReplaceRequest) {
     return request<void>(`/people/${id}/id-proof`, { method: "PUT", body });
+  },
+
+  /**
+   * Take the document off file, returning the member to **pending**. Admin only; 204.
+   *
+   * Destructive in earnest: the stored images are queued for deletion and removed from S3 by
+   * the server's sweeper, so this is not just unlinking them. 409 `id_proof_not_captured`
+   * when the member is already pending.
+   */
+  removeIdProof(id: Id) {
+    return request<void>(`/people/${id}/id-proof`, { method: "DELETE" });
   }
 };

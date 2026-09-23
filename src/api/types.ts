@@ -115,7 +115,8 @@ export type Me = {
 export type ShopListItem = {
   id: Id;
   shopNumber: string;
-  businessName: string;
+  /** Null when the trading name is not recorded yet. Render via `shopTitle`. */
+  businessName: string | null;
   lane: string;
   tenancy: Tenancy;
   /** A shop always has exactly one owner, but stay defensive at the boundary. */
@@ -137,7 +138,8 @@ export type PersonAtShop = {
 export type ShopDetail = {
   id: Id;
   shopNumber: string;
-  businessName: string;
+  /** Null when the trading name is not recorded yet. Render via `shopTitle`. */
+  businessName: string | null;
   lane: string;
   tenancy: Tenancy;
   /** Set by a transfer: "Previously: {name} · licence held till {till}". */
@@ -155,16 +157,28 @@ export type OwnerInput =
 
 export type RegisterShopRequest = {
   shopNumber: string;
-  businessName: string;
+  /**
+   * Optional since client revision v1 — a shop is often allotted before its trading name is
+   * settled. Omit it, or send `null`/`""`; all three store as null. Never send a placeholder
+   * like `"NA"`, which is indistinguishable from a real name once written.
+   */
+  businessName?: string | null;
   lane: string;
   tenancy: Tenancy;
   owner: OwnerInput;
 };
 
-/** All four fields are sent on every edit, per integration doc §5.3. */
+/**
+ * All four fields are sent on every edit, per integration doc §5.3.
+ *
+ * **`PATCH /shops/{id}` is a full replace, not a merge.** `businessName` became optional in
+ * client revision v1, which means omitting it no longer fails — it **clears** a name that was
+ * set, and the response says nothing about it. Always send the current value back; the edit
+ * form must pre-fill the field for exactly this reason.
+ */
 export type UpdateShopRequest = {
   shopNumber: string;
-  businessName: string;
+  businessName?: string | null;
   lane: string;
   tenancy: Tenancy;
 };
@@ -191,7 +205,8 @@ export type PersonShopLink = {
   linkId: Id;
   shopId: Id;
   shopNumber: string;
-  businessName: string;
+  /** Null when the trading name is not recorded yet. Render via `shopTitle`. */
+  businessName: string | null;
   role: LinkRole;
 };
 
@@ -209,8 +224,15 @@ export type PersonProfile = {
   phone: string;
   whatsappPhone: string;
   address: string | null;
-  /** Which ID is on file. Never null — the API's column is `NOT NULL`. */
-  idProofType: IdProofType;
+  /**
+  * Which ID is on file, or `null` when none is — a **pending** member.
+  *
+  * Optional since client revision v2: the register is loaded from the client's own records,
+  * which carry names, phones, photos and shop links but no documents. `null` here means the
+  * document has not been captured *yet*, not that it is hidden — a viewer and an admin both
+  * see `null` for a pending member.
+  */
+  idProofType: IdProofType | null;
   /** Last four characters — letters are possible, a PAN ends in one. Null when unrecorded. */
   idProofLast4: string | null;
   consent: boolean;
@@ -231,10 +253,19 @@ export type NewPersonPayload = {
   address?: string;
   /** From the upload flow. Mandatory. */
   photoKey: string;
-  /** Which document was captured. Required — null or an unknown value is a 400. */
-  idProofType: IdProofType;
-  /** From the upload flow, captured as `ID_PROOF_FRONT`. Mandatory. */
-  idProofFrontKey: string;
+  /**
+  * Which document was captured. **Optional since client revision v2** — omit it, with
+  * `idProofFrontKey`, to enrol a pending member whose document is captured later.
+  *
+  * The four ID-proof fields are **all-or-nothing**: send `idProofType` *and*
+  * `idProofFrontKey` together, or send none of the four. A type with no image, an image with
+  * no type, or a lone `idProofBackKey`/`idProofLast4` is a 400 `validation_error` naming
+  * `idProofConsistent`. Practically: let the user complete the ID-proof section or skip it
+  * whole — never half.
+  */
+  idProofType?: IdProofType;
+  /** From the upload flow, captured as `ID_PROOF_FRONT`. Required *with* `idProofType`. */
+  idProofFrontKey?: string;
   /** From the upload flow, `ID_PROOF_BACK`. Optional — a PAN card has no useful back. */
   idProofBackKey?: string;
   /**
@@ -280,10 +311,23 @@ export type IdProofReplaceRequest = {
   last4?: string;
 };
 
+/**
+ * Narrows the member list by whether a document is on file. `PENDING` is the queue the
+ * committee works through after the register is loaded — most of it, at first.
+ *
+ * An unknown value is a 400 `validation_error`, not a silent "no filter".
+ */
+export type IdProofFilter = "PENDING" | "CAPTURED";
+
 export type PeopleListParams = {
   query?: string;
   /** Omit for "All". */
   role?: LinkRole;
+  /**
+   * Omit for "All". Note the list rows carry **no** ID-proof field of their own, so this
+   * filter is the only way to tell pending from captured without opening each profile.
+   */
+  idProof?: IdProofFilter;
   page?: number;
   size?: number;
 };

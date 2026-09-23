@@ -60,6 +60,13 @@ export const SERVER_ERROR_CODES = [
   // --- media ----------------------------------------------------------------
   "id_proof_missing", // 404 · that side was never captured
   /**
+   * 409 · a per-side re-capture or a delete was attempted on a member with **no document on
+   * file** (client revision v2). Reaching this is a client bug in the same sense as
+   * `invalid_media_key`: the panel hides both actions on a pending member, because neither
+   * can succeed. The first capture is `PUT /id-proof`, which carries the type with it.
+   */
+  "id_proof_not_captured",
+  /**
    * 400 · a key was sent in the wrong field — a `photos/…` key as an ID-proof key or vice
    * versa. This is a **client bug**, not user error: it means a capture slot was wired to
    * the wrong `MediaType`, or one key was reused across two fields. Reusing a key was a
@@ -179,6 +186,8 @@ const OVERRIDE_MESSAGES: Partial<Record<ErrorCode, string>> = {
   no_email_on_file: "No email address is registered for this number. Please contact the treasurer.",
   forbidden: "You don't have permission for this.",
   id_proof_missing: "That side of the ID proof hasn't been captured yet.",
+  id_proof_not_captured:
+    "This member has no ID proof on file yet. Capture the document first, then try again.",
   // The user can't fix a mis-wired field, but retaking produces a fresh key in the right
   // namespace, which does resolve it. `__DEV__` logging for this lives at the call site.
   invalid_media_key: "That image couldn't be attached. Please retake it and save again.",

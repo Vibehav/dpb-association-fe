@@ -77,6 +77,16 @@ export function MemberForm({
   const [sameWhatsApp, setSameWhatsApp] = useState(true);
   const [whatsApp, setWhatsApp] = useState("");
   const [address, setAddress] = useState("");
+  /**
+   * Whether the member has their document to hand. Optional since client revision v2 — the
+   * register is loaded from records that carry no ID proofs, and a collector standing in
+   * front of someone who left their Aadhaar at home should be able to enrol them anyway.
+   *
+   * Turning it off **hides** the section rather than clearing it: a capture already taken is
+   * kept in case the toggle was a mis-tap, and simply left out of the payload. Nothing is
+   * destroyed, so nothing needs confirming.
+   */
+  const [hasIdProof, setHasIdProof] = useState(true);
   const [idProofType, setIdProofType] = useState<IdProofType>("AADHAAR");
   // Set while a type change is waiting on confirmation, because captures would be lost.
   const [pendingType, setPendingType] = useState<IdProofType | null>(null);
@@ -140,11 +150,14 @@ export function MemberForm({
       validatePhone(phone),
       sameWhatsApp ? null : validateWhatsApp(whatsApp),
       validateLinks ? validateLinks() : null,
-      validateIdProofLast4(idProofLast4),
+      hasIdProof ? validateIdProofLast4(idProofLast4) : null,
       // State-aware: distinguishes "not captured yet" from "captured but the upload
       // failed". The API now rejects a key whose object never landed in storage.
       imageFieldError(photo, "The member photo"),
-      imageFieldError(idProofFront, `The ${idProofLabel(idProofType).toLowerCase()} front`),
+      // The photo and consent stay mandatory; only the document may be skipped.
+      hasIdProof
+        ? imageFieldError(idProofFront, `The ${idProofLabel(idProofType).toLowerCase()} front`)
+        : null,
       validateConsent(consent)
     );
     setValidationError(message);
@@ -161,12 +174,19 @@ export function MemberForm({
       ...(trimmedAddress ? { address: trimmedAddress } : {}),
       // Non-null by the time validation passes.
       photoKey: photo.key as string,
-      idProofType,
-      idProofFrontKey: idProofFront.key as string,
-      ...(idProofBack.key ? { idProofBackKey: idProofBack.key } : {}),
-      // Spread, never `idProofLast4: last4 || undefined`. The API's @Pattern on this field
-      // has no @NotBlank beside it, so "" is a 400 while an absent key is accepted.
-      ...(last4 ? { idProofLast4: last4 } : {}),
+      // All four ID-proof fields move together or not at all — the API rejects any half
+      // state with a 400 naming `idProofConsistent`, and a back key or a last-four with no
+      // document behind it is exactly that. Skipping enrols a *pending* member.
+      ...(hasIdProof
+        ? {
+            idProofType,
+            idProofFrontKey: idProofFront.key as string,
+            ...(idProofBack.key ? { idProofBackKey: idProofBack.key } : {}),
+            // Spread, never `idProofLast4: last4 || undefined`. The API's @Pattern on this
+            // field has no @NotBlank beside it, so "" is a 400 while an absent key is fine.
+            ...(last4 ? { idProofLast4: last4 } : {})
+          }
+        : {}),
       consent: true
     });
   }
@@ -213,48 +233,68 @@ export function MemberForm({
       </Card>
 
       <Card>
-        {/* The picker comes first: it decides what the two slots below are photographing,
-            and the collector has the document in hand before they raise the camera. */}
-        <Text style={typography.eyebrow}>ID proof · required</Text>
-        <ChipRow>
-          {ID_PROOF_TYPES.map((option) => (
-            <Chip
-              key={option}
-              label={idProofLabel(option)}
-              selected={idProofType === option}
-              onPress={() => changeIdProofType(option)}
-            />
-          ))}
-        </ChipRow>
+        <Text style={typography.eyebrow}>ID proof</Text>
+        <CheckRow
+          label="The member has their ID proof with them"
+          checked={hasIdProof}
+          onToggle={setHasIdProof}
+          description="Turn this off to enrol them now and capture the document later."
+        />
 
-        {/* Labels name the chosen type, so a wrong pick is visible at the moment of
-            capture rather than buried in a chip row above. */}
-        <ImageCaptureField
-          label={`${idProofLabel(idProofType)} front`}
-          type="ID_PROOF_FRONT"
-          capture={idProofFront}
-          required
-          note="Stored encrypted. Once saved, the image can only be opened by the admin — collectors cannot view it again."
-        />
-        <ImageCaptureField
-          label={`${idProofLabel(idProofType)} back`}
-          type="ID_PROOF_BACK"
-          capture={idProofBack}
-        />
-        <Field
-          label={`${idProofLabel(idProofType)} — last 4 (optional)`}
-          placeholder="1234"
-          value={idProofLast4}
-          // Letters as well as digits: a PAN's last four contain one. Stripped rather than
-          // rejected so a typed space or dash never becomes an error message.
-          //
-          // No `keyboardType="number-pad"` — a number pad cannot type the F in 234F.
-          onChangeText={(next) => setIdProofLast4(next.replace(/[^A-Za-z0-9]/g, "").slice(0, 4))}
-          autoCorrect={false}
-          maxLength={4}
-          uppercase
-        />
+        {!hasIdProof ? (
+          <Banner
+            tone="notice"
+            message="This member will be saved without an ID proof and will appear in the pending list. Any admin or collector can capture the document later from their profile."
+          />
+        ) : null}
       </Card>
+
+      {/* Hidden rather than disabled when there is no document: a greyed-out camera invites
+          a collector to hunt for why it will not open. */}
+      {hasIdProof ? (
+        <Card>
+          {/* The picker comes first: it decides what the two slots below are photographing,
+              and the collector has the document in hand before they raise the camera. */}
+          <ChipRow>
+            {ID_PROOF_TYPES.map((option) => (
+              <Chip
+                key={option}
+                label={idProofLabel(option)}
+                selected={idProofType === option}
+                onPress={() => changeIdProofType(option)}
+              />
+            ))}
+          </ChipRow>
+
+          {/* Labels name the chosen type, so a wrong pick is visible at the moment of
+              capture rather than buried in a chip row above. */}
+          <ImageCaptureField
+            label={`${idProofLabel(idProofType)} front`}
+            type="ID_PROOF_FRONT"
+            capture={idProofFront}
+            required
+            note="Stored encrypted. Once saved, the image can only be opened by the admin — collectors cannot view it again."
+          />
+          <ImageCaptureField
+            label={`${idProofLabel(idProofType)} back`}
+            type="ID_PROOF_BACK"
+            capture={idProofBack}
+          />
+          <Field
+            label={`${idProofLabel(idProofType)} — last 4 (optional)`}
+            placeholder="1234"
+            value={idProofLast4}
+            // Letters as well as digits: a PAN's last four contain one. Stripped rather than
+            // rejected so a typed space or dash never becomes an error message.
+            //
+            // No `keyboardType="number-pad"` — a number pad cannot type the F in 234F.
+            onChangeText={(next) => setIdProofLast4(next.replace(/[^A-Za-z0-9]/g, "").slice(0, 4))}
+            autoCorrect={false}
+            maxLength={4}
+            uppercase
+          />
+        </Card>
+      ) : null}
 
       <ConfirmSheet
         visible={pendingType !== null}

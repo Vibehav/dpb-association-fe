@@ -7,6 +7,7 @@ import { ShopSearchSheet } from "../../components/search/ShopSearchSheet";
 import {
   Avatar,
   Banner,
+  BusinessName,
   Button,
   Card,
   Chip,
@@ -113,7 +114,7 @@ export function PersonProfileScreen({ navigation, route }: Props) {
               onPress={() => navigation.navigate("ShopDetail", { shopId: link.shopId })}
             >
               <Text style={styles.number}>{link.shopNumber}</Text>
-              <Text style={typography.body}>{link.businessName}</Text>
+              <BusinessName businessName={link.businessName} style={typography.body} />
             </Pressable>
             <Chip label={roleLabel(link.role)} />
             {/* Owner links are replaced by a transfer, never removed. */}

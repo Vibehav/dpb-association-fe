@@ -1,5 +1,6 @@
 export { Avatar } from "./Avatar";
 export { Banner, type BannerTone } from "./Banner";
+export { BusinessName } from "./BusinessName";
 export { Button, type ButtonVariant } from "./Button";
 export { Card } from "./Card";
 export { CheckRow } from "./CheckRow";

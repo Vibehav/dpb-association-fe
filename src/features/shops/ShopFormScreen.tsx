@@ -3,7 +3,18 @@ import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { errorMessage, isCode, type NewPersonPayload, type PersonListItem, type Tenancy } from "../../api";
 import { PersonPicker } from "../../components/search/PersonPicker";
-import { Banner, Button, Card, Chip, ChipRow, ErrorState, Field, LoadingScreen, Screen } from "../../components/ui";
+import {
+  Banner,
+  BusinessName,
+  Button,
+  Card,
+  Chip,
+  ChipRow,
+  ErrorState,
+  Field,
+  LoadingScreen,
+  Screen
+} from "../../components/ui";
 import type { AppStackParamList } from "../../navigation/types";
 import { spacing, typography } from "../../theme";
 import { upperCase } from "../../utils/format";
@@ -66,7 +77,10 @@ export function ShopFormScreen({ navigation, route }: Props) {
     const shop = existing.data;
     if (!editing || !shop) return;
     setShopNumber(upperCase(shop.shopNumber));
-    setBusinessName(upperCase(shop.businessName));
+    // Pre-filling is load-bearing, not a convenience: PATCH /shops/{id} is a full replace,
+    // so submitting this form with the field empty CLEARS a name that was set. Since client
+    // revision v1 that no longer fails validation — it silently succeeds.
+    setBusinessName(upperCase(shop.businessName ?? ""));
     setLane(upperCase(shop.lane));
     setTenancy(shop.tenancy);
   }, [editing, existing.data]);
@@ -82,7 +96,9 @@ export function ShopFormScreen({ navigation, route }: Props) {
 
   const shopFields = {
     shopNumber: shopNumber.trim(),
-    businessName: businessName.trim(),
+    // Explicit null rather than "": the API stores both the same way, and null says what is
+    // meant — no trading name recorded yet.
+    businessName: businessName.trim() || null,
     lane: lane.trim(),
     tenancy
   };
@@ -167,9 +183,8 @@ export function ShopFormScreen({ navigation, route }: Props) {
       <Screen>
         <Text style={typography.eyebrow}>Step 2 of 2 · licence holder</Text>
         <Card>
-          <Text style={typography.cardTitle}>
-            {shopFields.shopNumber} · {shopFields.businessName}
-          </Text>
+          <Text style={typography.cardTitle}>{shopFields.shopNumber}</Text>
+          <BusinessName businessName={shopFields.businessName} style={typography.cardTitle} />
           <Text style={typography.body}>
             This person becomes the licence holder. Changing them later needs a licence transfer.
           </Text>
@@ -206,8 +221,13 @@ export function ShopFormScreen({ navigation, route }: Props) {
           uppercase
         />
         <Field
-          label="Business name on the board"
+          label="Business name on the board (optional)"
           placeholder="e.g. Shree Ganesh Flowers"
+          hint={
+            editing
+              ? "Clearing this removes the name from the register."
+              : "Leave it blank if the board is not up yet — it can be added later."
+          }
           value={businessName}
           onChangeText={setBusinessName}
           uppercase

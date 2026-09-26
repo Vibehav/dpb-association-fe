@@ -239,7 +239,11 @@ export type PersonProfile = {
   addedByName: string | null;
   /** ISO instant. Times are UTC — present in IST. */
   addedOn: string;
-  /** Short-lived signed URL (~5 min), safe to put straight in an `<Image>`. */
+  /**
+  * Short-lived signed URL (~5 min), safe to put straight in an `<Image>`. **Null for a
+  * photoless member** — the profile endpoint no longer breaks on one, which is the substance
+  * of client revision v3. A 500 here is a regression, not a data problem.
+  */
   photoUrl: string | null;
   shops: PersonShopLink[];
 };
@@ -251,8 +255,15 @@ export type NewPersonPayload = {
   /** Defaults to `phone` server-side when omitted. */
   whatsappPhone?: string;
   address?: string;
-  /** From the upload flow. Mandatory. */
-  photoKey: string;
+  /**
+  * From the upload flow. **Optional since client revision v3** — omit it to enrol a
+  * <b>photoless</b> member, photographed later via `PUT /people/{id}/photo`.
+  *
+  * Unlike the ID proof there is no all-or-nothing rule: this is a single field, so skipping
+  * it is unambiguous and is coupled to nothing else. A member may carry either image, both,
+  * or neither.
+  */
+  photoKey?: string;
   /**
   * Which document was captured. **Optional since client revision v2** — omit it, with
   * `idProofFrontKey`, to enrol a pending member whose document is captured later.
@@ -319,6 +330,13 @@ export type IdProofReplaceRequest = {
  */
 export type IdProofFilter = "PENDING" | "CAPTURED";
 
+/**
+ * Narrows the member list by whether a photograph is on file. Independent of
+ * {@link IdProofFilter} — the two compose, so `?photo=PENDING&idProof=PENDING` is the set of
+ * members carrying no image of any kind.
+ */
+export type PhotoFilter = "PENDING" | "CAPTURED";
+
 export type PeopleListParams = {
   query?: string;
   /** Omit for "All". */
@@ -328,6 +346,12 @@ export type PeopleListParams = {
    * filter is the only way to tell pending from captured without opening each profile.
    */
   idProof?: IdProofFilter;
+  /**
+   * Omit for "All". As with `idProof`, the list rows carry **no** photo field of their own —
+   * rows identify by initials — so this filter is the only way to tell photoless from
+   * photographed without opening each profile.
+   */
+  photo?: PhotoFilter;
   page?: number;
   size?: number;
 };

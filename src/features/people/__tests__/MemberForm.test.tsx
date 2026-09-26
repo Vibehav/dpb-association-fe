@@ -120,6 +120,58 @@ describe("MemberForm — the ID-proof payload", () => {
     expect(onSubmit.mock.calls[0][0]).not.toHaveProperty("idProofLast4");
   });
 
+  it("omits photoKey when the member is not there to be photographed", async () => {
+    const onSubmit = jest.fn();
+    const view = await renderForm(onSubmit);
+
+    // As with the ID proof, a key sitting ready in the capture slot must still be left out —
+    // the API reads an absent key as "photograph them later" and "" as a 400.
+    await fireEvent.press(view.getByLabelText("The member is here to be photographed"));
+    await fillAndSubmit(view);
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    const payload = onSubmit.mock.calls[0][0];
+    expect(payload).not.toHaveProperty("photoKey");
+    // The ID proof is untouched by the photo toggle — the two are independent.
+    expect(payload).toMatchObject({
+      idProofType: "AADHAAR",
+      idProofFrontKey: "id-proofs/f.jpg",
+      consent: true
+    });
+  });
+
+  it("can skip both images at once, and still sends the rest", async () => {
+    const onSubmit = jest.fn();
+    const view = await renderForm(onSubmit);
+
+    await fireEvent.press(view.getByLabelText("The member is here to be photographed"));
+    await fireEvent.press(view.getByLabelText("The member has their ID proof with them"));
+    await fillAndSubmit(view);
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    const payload = onSubmit.mock.calls[0][0];
+    // The minimum a member can be: no image of any kind.
+    expect(payload).not.toHaveProperty("photoKey");
+    expect(payload).not.toHaveProperty("idProofType");
+    expect(payload).not.toHaveProperty("idProofFrontKey");
+    // Uppercased by the name Field, as every other member is.
+    expect(payload).toMatchObject({ name: "VINOD KUMAR", phone: "9820000000", consent: true });
+  });
+
+  it("still demands a photo while the member is present for one", async () => {
+    const onSubmit = jest.fn();
+    mockSlots.PHOTO = slot({ status: "empty" });
+    const view = await renderForm(onSubmit);
+
+    await fillAndSubmit(view);
+
+    // Skipping is a deliberate toggle, never an empty capture slot waved through.
+    await waitFor(() =>
+      expect(view.getByText("The member photo is required.")).toBeTruthy()
+    );
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it("omits all four ID-proof fields when the member has no document with them", async () => {
     const onSubmit = jest.fn();
     const view = await renderForm(onSubmit);

@@ -15,10 +15,15 @@ type Props = {
 };
 
 /**
- * The member photo, with retake (integration doc §5.8).
+ * The member photo, with capture/retake (integration doc §5.8).
  *
  * A face photo so the person is identifiable at the counter, so it's shown large and
- * round. Retake captures, uploads, and attaches in one action.
+ * round. The button captures, uploads, and attaches in one action.
+ *
+ * <p>Since client revision v3 a member may be <b>photoless</b> — enrolled before they were
+ * photographed, which is how the client's register arrives. The same button serves both
+ * cases, because they are the same request, but it must not say "Retake" to someone who has
+ * never been photographed: that reads as a bug in front of the member it concerns.
  */
 export function MemberPhoto({ personId, photoUrl, canRetake }: Props) {
   const capture = useImageCapture("PHOTO");
@@ -52,7 +57,7 @@ export function MemberPhoto({ personId, photoUrl, canRetake }: Props) {
 
       {canRetake ? (
         <Button
-          label={busy ? "Saving…" : "Retake"}
+          label={busy ? "Saving…" : shown ? "Retake" : "Add photo"}
           variant="secondary"
           icon="camera-outline"
           disabled={busy}

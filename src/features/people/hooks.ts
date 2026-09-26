@@ -16,12 +16,18 @@ import {
   type IdProofFilter,
   type IdProofSide,
   type LinkRole,
+  type PhotoFilter,
   type UpdatePersonRequest
 } from "../../api";
 import { isIdProofQuery, queryKeys } from "../../app/queryKeys";
 import { COUNT_ONLY, peopleCountQueryHash, shopCountQueryHash } from "../../app/countQueries";
 
-export type PeopleFilters = { query?: string; role?: LinkRole; idProof?: IdProofFilter };
+export type PeopleFilters = {
+  query?: string;
+  role?: LinkRole;
+  idProof?: IdProofFilter;
+  photo?: PhotoFilter;
+};
 
 export function usePeopleList(filters: PeopleFilters) {
   return useInfiniteQuery({

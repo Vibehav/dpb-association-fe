@@ -67,6 +67,12 @@ export const SERVER_ERROR_CODES = [
    */
   "id_proof_not_captured",
   /**
+   * 404 · the member has not been photographed yet (client revision v3). Unlike most 404s
+   * this is an ordinary state, not a fault — show "No photo on file" with an add action
+   * rather than a failure toast.
+   */
+  "photo_missing",
+  /**
    * 400 · a key was sent in the wrong field — a `photos/…` key as an ID-proof key or vice
    * versa. This is a **client bug**, not user error: it means a capture slot was wired to
    * the wrong `MediaType`, or one key was reused across two fields. Reusing a key was a
@@ -186,6 +192,7 @@ const OVERRIDE_MESSAGES: Partial<Record<ErrorCode, string>> = {
   no_email_on_file: "No email address is registered for this number. Please contact the treasurer.",
   forbidden: "You don't have permission for this.",
   id_proof_missing: "That side of the ID proof hasn't been captured yet.",
+  photo_missing: "This member hasn't been photographed yet.",
   id_proof_not_captured:
     "This member has no ID proof on file yet. Capture the document first, then try again.",
   // The user can't fix a mis-wired field, but retaking produces a fresh key in the right

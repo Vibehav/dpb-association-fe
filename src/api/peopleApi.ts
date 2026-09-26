@@ -21,12 +21,13 @@ export const peopleApi = {
    * `query` matches name, phone or shop number. Omit `role` for "All".
    *
    * `idProof` is `PENDING` or `CAPTURED` — the pending queue, since client revision v2.
-   * The rows themselves carry no ID-proof field, so this filter is the only way to partition
-   * the register without fetching every profile.
+   * `photo` is the same for the photograph, since v3. The rows themselves carry neither
+   * field, so these filters are the only way to partition the register without fetching every
+   * profile. They are independent and combine.
    */
-  list({ query, role, idProof, page = 0, size = PEOPLE_PAGE_SIZE }: PeopleListParams) {
+  list({ query, role, idProof, photo, page = 0, size = PEOPLE_PAGE_SIZE }: PeopleListParams) {
     return request<Paged<PersonListItem>>("/people", {
-      query: { query, role, idProof, page, size }
+      query: { query, role, idProof, photo, page, size }
     });
   },
 
@@ -60,11 +61,16 @@ export const peopleApi = {
    * Fresh signed photo URL. The profile response already carries one, so this is only
    * needed to refresh after a retake or once the embedded URL has expired.
    */
+  /** 404 `photo_missing` when the member has not been photographed yet — a routine state. */
   photoUrl(id: Id) {
     return request<SignedUrlResponse>(`/people/${id}/photo`);
   },
 
-  /** Retake. `key` comes from the upload flow. */
+  /**
+   * Sets the member's photograph — the first one, or a replacement. Both are this same
+   * request, and both are open to admin and collector; there is no state-based rule here as
+   * there is for the ID proof. `key` comes from the upload flow.
+   */
   updatePhoto(id: Id, key: string) {
     return request<void>(`/people/${id}/photo`, { method: "PUT", body: { key } });
   },

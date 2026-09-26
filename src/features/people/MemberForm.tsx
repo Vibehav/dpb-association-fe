@@ -78,6 +78,15 @@ export function MemberForm({
   const [whatsApp, setWhatsApp] = useState("");
   const [address, setAddress] = useState("");
   /**
+   * Whether the member is present to be photographed. Optional since client revision v3, for
+   * the same reason the ID proof is: the register loads from records with no images, and a
+   * collector recording someone who is not in front of them has nothing to photograph.
+   *
+   * **Independent of {@link hasIdProof}.** Skipping one says nothing about the other — a
+   * member may carry either image, both, or neither. Hides rather than clears, as below.
+   */
+  const [hasPhoto, setHasPhoto] = useState(true);
+  /**
    * Whether the member has their document to hand. Optional since client revision v2 — the
    * register is loaded from records that carry no ID proofs, and a collector standing in
    * front of someone who left their Aadhaar at home should be able to enrol them anyway.
@@ -153,7 +162,7 @@ export function MemberForm({
       hasIdProof ? validateIdProofLast4(idProofLast4) : null,
       // State-aware: distinguishes "not captured yet" from "captured but the upload
       // failed". The API now rejects a key whose object never landed in storage.
-      imageFieldError(photo, "The member photo"),
+      hasPhoto ? imageFieldError(photo, "The member photo") : null,
       // The photo and consent stay mandatory; only the document may be skipped.
       hasIdProof
         ? imageFieldError(idProofFront, `The ${idProofLabel(idProofType).toLowerCase()} front`)
@@ -172,8 +181,9 @@ export function MemberForm({
       // Omitted rather than sent empty — the API defaults it to `phone`.
       ...(sameWhatsApp ? {} : { whatsappPhone: normalisePhone(whatsApp) }),
       ...(trimmedAddress ? { address: trimmedAddress } : {}),
-      // Non-null by the time validation passes.
-      photoKey: photo.key as string,
+      // Non-null by the time validation passes, and omitted entirely when skipped — the API
+      // takes an absent key as "photograph them later", and "" as a 400.
+      ...(hasPhoto ? { photoKey: photo.key as string } : {}),
       // All four ID-proof fields move together or not at all — the API rejects any half
       // state with a 400 naming `idProofConsistent`, and a back key or a last-four with no
       // document behind it is exactly that. Skipping enrols a *pending* member.
@@ -201,7 +211,20 @@ export function MemberForm({
           onChangeText={setName}
           uppercase
         />
-        <ImageCaptureField label="Member photo" type="PHOTO" capture={photo} required />
+        <CheckRow
+          label="The member is here to be photographed"
+          checked={hasPhoto}
+          onToggle={setHasPhoto}
+          description="Turn this off to enrol them now and take the photo later."
+        />
+        {hasPhoto ? (
+          <ImageCaptureField label="Member photo" type="PHOTO" capture={photo} required />
+        ) : (
+          <Banner
+            tone="notice"
+            message="This member will be saved without a photo and will appear in the photoless list. Any admin or collector can take it later from their profile."
+          />
+        )}
       </Card>
 
       {linksSection}

@@ -17,10 +17,33 @@ export type AuthStackParamList = {
   NewPin: { phone: string; resetToken: string; purpose: OtpPurpose };
 };
 
+/**
+ * Home's fee lists hand off to the Shops tab with this filter applied. `ARREARS` maps to
+ * `?arrears=true`; the rest are this year's `feeStatus`.
+ */
+export type ShopFeeFilter = "PENDING" | "PARTIAL" | "PAID" | "ARREARS";
+
 export type MainTabsParamList = {
-  Shops: undefined;
-  Home: undefined;
+  Shops: { feeFilter?: ShopFeeFilter } | undefined;
   People: undefined;
+  Home: undefined;
+  /** Admin only — the tab is not registered for anyone else. */
+  Fund: undefined;
+};
+
+/**
+ * Where a collection starts. Every field is optional because there are many doors in:
+ * a shop's Collect (shopId + ANNUAL_FEE, the payer resolved to its licence holder), an
+ * arrear (plus feeCycleId), a member's or donor's "Record a contribution", or Home with
+ * nothing preset (the payer is then searched for).
+ */
+export type CollectParams = {
+  personId?: Id;
+  donorId?: Id;
+  purpose?: "ANNUAL_FEE" | "ONE_OFF";
+  shopId?: Id;
+  /** A closed year's id collects an arrear. Omitted = this year. */
+  feeCycleId?: Id;
 };
 
 export type AppStackParamList = {
@@ -44,4 +67,17 @@ export type AppStackParamList = {
   /** Admin only. */
   Committee: undefined;
   AddCommitteeMember: undefined;
+
+  // ---- money (v2 Phase 1) ----
+  Collect: CollectParams | undefined;
+  /** Receipt view / Reprint — every role. Admins cancel or correct from here. */
+  Receipt: { contributionId: Id };
+  /** Admin only. */
+  ReceiptAction: { contributionId: Id; mode: "cancel" | "correct" };
+  /** Admin only. */
+  CancelledReceipts: undefined;
+  /** Admin only — the annual fee year. */
+  FeeCycle: undefined;
+  DonorProfile: { donorId: Id };
+  DonorEdit: { donorId: Id };
 };

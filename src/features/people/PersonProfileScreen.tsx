@@ -22,6 +22,7 @@ import { colors, spacing, typography } from "../../theme";
 import { callNumber, openWhatsApp } from "../../utils/deviceActions";
 import { formatDate, roleLabel } from "../../utils/format";
 import { formatPhone } from "../../utils/phone";
+import { ContributionHistory } from "../money/components/ContributionHistory";
 import { useRemoveLink } from "../shops/hooks";
 import { IdProofPanel } from "./components/IdProofPanel";
 import { MemberPhoto } from "./components/MemberPhoto";
@@ -30,9 +31,9 @@ import { useAddPersonLink, useDeletePerson, usePerson } from "./hooks";
 type Props = NativeStackScreenProps<AppStackParamList, "PersonProfile">;
 
 /**
- * A member's profile (integration doc §5.8).
- *
- * Contribution history and "Record a contribution" from the design are v2 and omitted.
+ * A member's profile (integration doc §5.8), with their contribution history (spec §6.5):
+ * every receipt, cancelled ones struck through, the lifetime total from the server, and
+ * "Record a contribution" for anyone who may collect.
  */
 export function PersonProfileScreen({ navigation, route }: Props) {
   const { personId } = route.params;
@@ -175,6 +176,20 @@ export function PersonProfileScreen({ navigation, route }: Props) {
         person={data}
         onReplace={() => navigation.navigate("IdProofReplace", { personId })}
       />
+
+      <ContributionHistory
+        lifetimeTotal={data.lifetimeTotal}
+        hasCancelled={data.hasCancelled}
+        rows={data.contributionHistory}
+        onOpen={(contributionId) => navigation.navigate("Receipt", { contributionId })}
+      />
+      {canWrite ? (
+        <Button
+          label="Record a contribution"
+          icon="cash-outline"
+          onPress={() => navigation.navigate("Collect", { personId })}
+        />
+      ) : null}
 
       {actionError ? <Banner message={actionError} /> : null}
 

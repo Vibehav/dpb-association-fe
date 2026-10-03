@@ -31,6 +31,28 @@ describe("the code list", () => {
     for (const code of mustKnow) expect(SERVER_ERROR_CODES).toContain(code);
   });
 
+  it("knows the money codes the screens branch on (v2 Phase 1)", () => {
+    // The collection form and receipt actions turn `part_payment_unconfirmed` into a
+    // confirmation, and the shop screen turns `fee_outstanding` into the delete prompt —
+    // a code missing here would make those branches silently never match.
+    const money = [
+      "payer_required", "donor_cannot_pay_fee", "shop_required", "no_open_cycle", "demand_not_raised",
+      "fee_demand_not_found", "no_licence_holder", "not_licence_holder", "fee_already_paid",
+      "amount_above_due", "part_payment_unconfirmed", "events_not_available", "contribution_not_found",
+      "already_cancelled", "donor_not_found", "fee_cycle_not_found", "invalid_year_label",
+      "cycle_already_open", "duplicate_year", "cycle_closed", "demand_already_raised", "fee_outstanding"
+    ];
+    for (const code of money) expect(SERVER_ERROR_CODES).toContain(code);
+  });
+
+  it("shows the server's own words for the fee refusals, which carry the amounts", () => {
+    const e = apiErrorFromBody(
+      409,
+      '{"code":"part_payment_unconfirmed","message":"₹3,000 will remain due for 2026-27 — confirm to record this as a part payment"}'
+    );
+    expect(errorMessage(e)).toBe("₹3,000 will remain due for 2026-27 — confirm to record this as a part payment");
+  });
+
   it("dropped the Aadhaar-era code rather than keeping both", () => {
     // A rename that only *adds* the new code leaves dead branches matching the old one.
     expect(SERVER_ERROR_CODES).not.toContain("aadhaar_missing");

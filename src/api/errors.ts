@@ -100,6 +100,44 @@ export const SERVER_ERROR_CODES = [
   /** 400 · the object isn't in storage — the presigned PUT never completed. */
   "media_not_uploaded",
 
+  // --- money: collecting (v2 Phase 1) ----------------------------------------
+  // Most of these carry a message written to be shown as-is ("Only ₹3,000 is due for
+  // 2026-27"), so they have no override below.
+  "payer_required", // 400 · not exactly one of personId / donorId / newDonor
+  "donor_cannot_pay_fee", // 400 · the annual fee is paid by the licence holder only
+  "shop_required", // 400 · ANNUAL_FEE without shopId
+  "no_open_cycle", // 409 · no fee year open (also 404 on GET /fee-cycles/current — a normal state)
+  "demand_not_raised", // 409 · fee year exists, demand not raised
+  "fee_demand_not_found", // 404 · that year named, but this shop owed nothing in it
+  "no_licence_holder", // 409 · the shop has no holder on record to pay
+  "not_licence_holder", // 400 · the payer is not the shop's licence holder
+  "fee_already_paid", // 409 · nothing is due for that year
+  "amount_above_due", // 400 · more than is due; message names what is
+  /**
+   * 409 · less than is due and not confirmed. **Not a failure** — the confirmation step of a
+   * part payment. Show the message ("₹3,000 will remain due … confirm …") with Cancel /
+   * Confirm, and resend with `confirmPartPayment: true`.
+   */
+  "part_payment_unconfirmed",
+  "events_not_available", // 400 · EVENT_DONATION before Phase 2
+  "contribution_not_found", // 404
+  "already_cancelled", // 409 · cancel or correct on a cancelled receipt
+  "donor_not_found", // 404
+
+  // --- money: fee year (admin) ------------------------------------------------
+  "fee_cycle_not_found", // 404
+  "invalid_year_label", // 400 · must be two consecutive years, 2026-27
+  "cycle_already_open", // 409 · close the open year first
+  "duplicate_year", // 409 · that year's fee was already set
+  "cycle_closed", // 400 · re-price / raise / close on a closed year
+  "demand_already_raised", // 409
+  /**
+   * 409 · the shop still owes fees. On **delete** it is a prompt: resend with
+   * `confirmOutstanding=true` to delete anyway. On **transfer** it is a refusal — the dues
+   * must be collected from the current holder first. Show the message; it names the amount.
+   */
+  "fee_outstanding",
+
   // --- generic --------------------------------------------------------------
   "forbidden", // 403 · authenticated but the role isn't allowed
   // 400 · bean-validation failure, where `message` names the field — and also an

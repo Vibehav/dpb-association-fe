@@ -1,27 +1,26 @@
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, type RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { usePermissions } from "../../auth/usePermissions";
-import {
-  Button,
-  Chip,
-  ChipRow,
-  EmptyState,
-  ErrorState,
-  ListFooter,
-  SearchBox
-} from "../../components/ui";
+import { SearchWithFilters, type FilterValues } from "../../components/search/SearchWithFilters";
+import { Button, EmptyState, ErrorState, ListFooter } from "../../components/ui";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
-import type { AppStackParamList } from "../../navigation/types";
+import type { AppStackParamList, MainTabsParamList, ShopFeeFilter } from "../../navigation/types";
 import { colors, spacing, typography } from "../../theme";
 import { countLine } from "../../utils/format";
 import { ShopCard } from "./components/ShopCard";
 import { useShopsList } from "./hooks";
 
-const ALL = "__all__";
+/** Fee filters, server-side (v2 Phase 1). Home's pending lists open this tab with one set. */
+const FEE_FILTERS: { value: ShopFeeFilter; label: string }[] = [
+  { value: "PENDING", label: "Due" },
+  { value: "PARTIAL", label: "Part paid" },
+  { value: "PAID", label: "Fee paid" },
+  { value: "ARREARS", label: "Arrears" }
+];
 
 /**
  * The shops register (integration doc §5.2).
@@ -32,15 +31,24 @@ const ALL = "__all__";
  */
 export function ShopsListScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const route = useRoute<RouteProp<MainTabsParamList, "Shops">>();
   const { canWrite } = usePermissions();
 
   const [term, setTerm] = useState("");
-  const [lane, setLane] = useState<string>(ALL);
+  const [lane, setLane] = useState<string | null>(null);
+  const [fee, setFee] = useState<ShopFeeFilter | null>(route.params?.feeFilter ?? null);
   const debounced = useDebouncedValue(term.trim(), 350);
+
+  // Arriving from Home's "View all" sets the filter, even when the tab was already mounted.
+  useEffect(() => {
+    if (route.params?.feeFilter) setFee(route.params.feeFilter);
+  }, [route.params?.feeFilter]);
 
   const list = useShopsList({
     query: debounced || undefined,
-    lane: lane === ALL ? undefined : lane
+    lane: lane ?? undefined,
+    feeStatus: fee && fee !== "ARREARS" ? fee : undefined,
+    arrears: fee === "ARREARS" ? true : undefined
   });
 
   useRefreshOnFocus(list.refetch);
@@ -50,12 +58,30 @@ export function ShopsListScreen() {
   const total = pages[0]?.totalElements ?? 0;
 
   // There is no lanes endpoint — `lane` is free text with no master table (api slice 1).
-  // Chips are derived from what's been loaded, so they grow as you scroll.
+  // The choices are every lane seen so far, so they grow as you scroll — and are remembered,
+  // so applying one lane doesn't shrink the list of lanes to that one.
+  const seenLanes = useRef(new Set<string>());
   const lanes = useMemo(() => {
-    const seen = new Set<string>();
-    for (const shop of shops) if (shop.lane) seen.add(shop.lane);
-    return [...seen].sort((a, b) => a.localeCompare(b));
+    for (const shop of shops) if (shop.lane) seenLanes.current.add(shop.lane);
+    return [...seenLanes.current].sort((a, b) => a.localeCompare(b));
   }, [shops]);
+
+  const filterSections = [
+    {
+      key: "fee",
+      title: "Fee this year",
+      anyLabel: "Any",
+      options: FEE_FILTERS.map(({ value, label }) => ({ value, label }))
+    },
+    ...(lanes.length > 0
+      ? [{ key: "lane", title: "Lane", anyLabel: "All lanes", options: lanes.map((value) => ({ value, label: value })) }]
+      : [])
+  ];
+  const filterValues: FilterValues = { fee, lane };
+  function applyFilters(next: FilterValues) {
+    setFee((next.fee as ShopFeeFilter | null) ?? null);
+    setLane(next.lane ?? null);
+  }
 
   if (list.error && shops.length === 0) {
     return (
@@ -80,24 +106,14 @@ export function ShopsListScreen() {
         }}
         ListHeaderComponent={
           <View style={styles.header}>
-            <SearchBox
-              value={term}
-              onChangeText={setTerm}
+            <SearchWithFilters
+              term={term}
+              onChangeTerm={setTerm}
               placeholder="Search shop, business or person"
+              sections={filterSections}
+              values={filterValues}
+              onChangeValues={applyFilters}
             />
-            {lanes.length > 0 ? (
-              <ChipRow>
-                <Chip label="All" selected={lane === ALL} onPress={() => setLane(ALL)} />
-                {lanes.map((value) => (
-                  <Chip
-                    key={value}
-                    label={value}
-                    selected={lane === value}
-                    onPress={() => setLane(value)}
-                  />
-                ))}
-              </ChipRow>
-            ) : null}
             {!list.isPending ? (
               <Text style={typography.bodySmall}>{countLine(shops.length, total, "shop")}</Text>
             ) : null}
@@ -111,11 +127,13 @@ export function ShopsListScreen() {
           list.isPending ? null : (
             <EmptyState
               icon="storefront-outline"
-              title={debounced || lane !== ALL ? "No shops match" : "No shops yet"}
+              title={debounced || lane !== null || fee ? "No shops match" : "No shops yet"}
               message={
-                debounced || lane !== ALL
-                  ? "Try a different number, business name or person."
-                  : "Register the first shop to start the register."
+                fee && !debounced && lane === null
+                  ? "No shop is in that fee position right now."
+                  : debounced || lane !== null
+                    ? "Try a different number, business name or person."
+                    : "Register the first shop to start the register."
               }
             />
           )

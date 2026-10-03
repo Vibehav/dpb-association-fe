@@ -1,4 +1,4 @@
-import type { Id, IdProofSide, PeopleListParams, ShopListParams } from "../api";
+import type { DonorListParams, Id, IdProofSide, PeopleListParams, ShopListParams } from "../api";
 
 /**
  * Every query key in one place, so invalidation after a mutation is a lookup rather
@@ -34,6 +34,36 @@ export const queryKeys = {
   committee: {
     all: ["committee"] as const,
     detail: (id: Id) => ["committee", "detail", id] as const
+  },
+
+  // ---- money (v2 Phase 1) -------------------------------------------------
+  // Every money write invalidates the lot via `useMoneyInvalidation` — a receipt moves the
+  // fund, the dashboard, a shop's fee, a payer's total and possibly the audit list at once.
+
+  dashboard: ["dashboard"] as const,
+
+  contributions: {
+    all: ["contributions"] as const,
+    receipt: (id: Id) => ["contributions", "receipt", id] as const,
+    cancelled: ["contributions", "cancelled"] as const
+  },
+
+  donors: {
+    all: ["donors"] as const,
+    list: (params: DonorListParams) => ["donors", "list", params] as const,
+    detail: (id: Id) => ["donors", "detail", id] as const
+  },
+
+  feeCycles: {
+    all: ["fee-cycles"] as const,
+    current: ["fee-cycles", "current"] as const,
+    history: ["fee-cycles", "history"] as const
+  },
+
+  fund: {
+    all: ["fund"] as const,
+    summary: ["fund", "summary"] as const,
+    income: ["fund", "income"] as const
   }
 };
 

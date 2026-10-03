@@ -15,13 +15,11 @@ import { formatPhone } from "../../utils/phone";
 /**
  * Account, reached from the initials in the header.
  *
- * Phase 1 covers identity, the rights statement, lock and sign-out. Change M-PIN and the
- * admin-only committee screen are phase 7 — change-PIN reuses the OTP screens, which
- * needs them presented from the signed-in stack.
+ * Identity, the rights statement, Change M-PIN, lock and sign-out; for an admin, the
+ * committee and — since v2 Phase 1 — the annual fee year and cancelled receipts.
  *
- * Everything money-shaped that the design puts here — Cash with you, Cash handovers,
- * Cancelled receipts, Annual fee cycle, Reports — is v2 and deliberately absent
- * (integration doc §5.9).
+ * Cash with you, Cash handovers and Reports from the design are later money phases and stay
+ * absent until their API exists.
  */
 export function AccountScreen() {
   const { phone, lock, signOut } = useAuth();
@@ -66,8 +64,23 @@ export function AccountScreen() {
         onPress={() => navigation.navigate("ChangePin")}
       />
 
-      {/* Admin only — everything money-shaped the design puts here (cash handovers,
-          cancelled receipts, the fee cycle, reports) is v2 and deliberately absent. */}
+      {/* Admin only. Cash handovers and reports are later money phases. */}
+      {permissions.isAdmin ? (
+        <>
+          <Button
+            label="Annual fee"
+            variant="secondary"
+            icon="calendar-outline"
+            onPress={() => navigation.navigate("FeeCycle")}
+          />
+          <Button
+            label="Cancelled receipts"
+            variant="secondary"
+            icon="close-circle-outline"
+            onPress={() => navigation.navigate("CancelledReceipts")}
+          />
+        </>
+      ) : null}
       {permissions.canManageCommittee ? (
         <Button
           label="Committee members & roles"
@@ -86,11 +99,11 @@ export function AccountScreen() {
 /** Plain-language statement per role, from the capability table in integration doc §3. */
 const RIGHTS: Record<Role, string> = {
   ADMIN:
-    "You can do everything in the register: register and edit shops and members, add renters and staff, transfer a licence, and remove records. You can open a stored ID-proof image — every view is logged — and you manage who is on the committee.",
+    "You can do everything in the register: register and edit shops and members, add renters and staff, transfer a licence, and remove records. You can open a stored ID-proof image — every view is logged — and you manage who is on the committee. You collect money and issue receipts, set the annual fee, see the general fund, and cancel or correct a receipt.",
   COLLECTOR:
-    "You can register and edit shops and members, add renters and staff, and capture member photos and ID-proof copies. You cannot open a stored ID-proof image once it is captured, transfer a licence, or remove a record.",
+    "You can register and edit shops and members, add renters and staff, and capture member photos and ID-proof copies. You collect money and issue receipts. You cannot open a stored ID-proof image once it is captured, transfer a licence, remove a record, see the fund's balance, or cancel or correct a receipt — telephone the treasurer for that.",
   VIEWER:
-    "You can read the register — shops, members, and the role each person holds at each shop. You cannot add or change anything, and you cannot open stored ID-proof images."
+    "You can read the register — shops, members, and the role each person holds at each shop — and the money collected. You cannot add or change anything, see the fund's balance, or open stored ID-proof images."
 };
 
 const styles = StyleSheet.create({

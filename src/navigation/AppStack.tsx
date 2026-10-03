@@ -3,6 +3,13 @@ import { AccountScreen } from "../features/account/AccountScreen";
 import { ChangePinScreen } from "../features/account/ChangePinScreen";
 import { AddCommitteeMemberScreen } from "../features/committee/AddCommitteeMemberScreen";
 import { CommitteeScreen } from "../features/committee/CommitteeScreen";
+import { CancelledReceiptsScreen } from "../features/money/CancelledReceiptsScreen";
+import { CollectScreen } from "../features/money/CollectScreen";
+import { DonorEditScreen } from "../features/money/DonorEditScreen";
+import { DonorProfileScreen } from "../features/money/DonorProfileScreen";
+import { FeeCycleScreen } from "../features/money/FeeCycleScreen";
+import { ReceiptActionScreen } from "../features/money/ReceiptActionScreen";
+import { ReceiptScreen } from "../features/money/ReceiptScreen";
 import { AddMemberScreen } from "../features/people/AddMemberScreen";
 import { IdProofReplaceScreen } from "../features/people/IdProofReplaceScreen";
 import { PersonEditScreen } from "../features/people/PersonEditScreen";
@@ -79,6 +86,27 @@ export function AppStack() {
         name="AddCommitteeMember"
         component={AddCommitteeMemberScreen}
         options={{ presentation: "modal", title: "Add committee member" }}
+      />
+
+      {/* Money — v2 Phase 1. */}
+      <Stack.Screen
+        name="Collect"
+        component={CollectScreen}
+        options={{ presentation: "modal", title: "Record a contribution" }}
+      />
+      <Stack.Screen name="Receipt" component={ReceiptScreen} options={{ title: "Receipt" }} />
+      <Stack.Screen name="ReceiptAction" component={ReceiptActionScreen} options={{ presentation: "modal" }} />
+      <Stack.Screen
+        name="CancelledReceipts"
+        component={CancelledReceiptsScreen}
+        options={{ title: "Cancelled receipts" }}
+      />
+      <Stack.Screen name="FeeCycle" component={FeeCycleScreen} options={{ title: "Annual fee" }} />
+      <Stack.Screen name="DonorProfile" component={DonorProfileScreen} options={{ title: "Donor" }} />
+      <Stack.Screen
+        name="DonorEdit"
+        component={DonorEditScreen}
+        options={{ presentation: "modal", title: "Edit donor" }}
       />
     </Stack.Navigator>
   );

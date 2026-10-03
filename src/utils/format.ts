@@ -1,6 +1,9 @@
 /**
- * Display formatting. There is deliberately no money formatter — v1 has no money
- * (integration doc §11), and the old `money()` helper only existed to render mock figures.
+ * Display formatting.
+ *
+ * Money arrives from the server already computed (v2 Phase 1) — these only *render* it. The
+ * old `money()` helper was removed in v1 because it rendered mock figures; `formatMoney` here
+ * renders real ones and nothing else.
  */
 
 const IST = "Asia/Kolkata";
@@ -145,4 +148,56 @@ export function formatDateTime(iso: string | null | undefined) {
 export function countLine(shown: number, total: number, noun: string, pluralNoun = `${noun}s`) {
   const label = total === 1 ? noun : pluralNoun;
   return `${shown.toLocaleString("en-IN")} of ${total.toLocaleString("en-IN")} ${label} shown`;
+}
+
+// ---------------------------------------------------------------------------
+// money (v2 Phase 1)
+// ---------------------------------------------------------------------------
+
+/**
+ * 482500 → "₹4,82,500" — Indian digit grouping (functional spec §1). Whole rupees: the API
+ * refuses paise, so there is nothing after the point to show.
+ *
+ * Built by hand rather than `toLocaleString("en-IN")`: Hermes on Android has shipped without
+ * full ICU, where that silently falls back to Western grouping ("482,500"), and on a receipt
+ * the grouping is not cosmetic.
+ */
+export function formatMoney(amount: number | null | undefined) {
+  if (amount === null || amount === undefined || Number.isNaN(amount)) return "—";
+  const negative = amount < 0;
+  const digits = String(Math.trunc(Math.abs(amount)));
+  const lastThree = digits.slice(-3);
+  const rest = digits.slice(0, -3);
+  const grouped = rest ? `${rest.replace(/\B(?=(\d{2})+(?!\d))/g, ",")},${lastThree}` : lastThree;
+  return `${negative ? "-" : ""}₹${grouped}`;
+}
+
+/** "CHEQUE" → "Cheque", but "UPI" stays "UPI". As the receipt prints it. */
+export function paymentModeLabel(mode: string) {
+  return mode === "UPI" ? "UPI" : titleCase(mode);
+}
+
+/** Purpose as the collection form offers it. Receipts use the server's `purposeLabel`. */
+export function purposeLabel(purpose: string) {
+  if (purpose === "ANNUAL_FEE") return "Annual fee";
+  if (purpose === "ONE_OFF") return "One-off";
+  if (purpose === "EVENT_DONATION") return "Event donation";
+  return titleCase(purpose);
+}
+
+/** "CASH_NOT_RECEIVED" → "Cash not received". */
+export function cancelReasonLabel(reason: string) {
+  const words = reason.toLowerCase().replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/**
+ * The fee chip's words. `NO_DEMAND` has none on purpose — no fee year is open, or the demand
+ * isn't raised, and a "₹0" or "Due" chip there would be invented.
+ */
+export function feeChipLabel(status: string): string | null {
+  if (status === "PAID") return "Fee paid";
+  if (status === "PARTIAL") return "Part paid";
+  if (status === "PENDING") return "Due";
+  return null;
 }

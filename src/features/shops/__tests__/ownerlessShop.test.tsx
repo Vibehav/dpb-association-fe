@@ -69,7 +69,14 @@ const shop: ShopDetail = {
   tenancy: "OWNER_RUN",
   formerHolderName: null,
   formerHolderTill: null,
-  people: [owner, renter]
+  people: [owner, renter],
+  // No fee year open — the money module stays out of the way of these tests.
+  fee: {
+    feeCycleId: null, yearLabel: null, status: "NO_DEMAND", amount: null, paid: null, due: null,
+    meetingNote: null, collectable: false, receipts: []
+  },
+  earlierYears: [],
+  feeOutstanding: { total: 0, byYear: [] }
 };
 
 const person: PersonProfile = {
@@ -84,7 +91,10 @@ const person: PersonProfile = {
   addedByName: "Ishwar",
   addedOn: "2026-08-22T10:00:00Z",
   photoUrl: null,
-  shops: []
+  shops: [],
+  lifetimeTotal: 0,
+  hasCancelled: false,
+  contributionHistory: []
 };
 
 const holdsLicence = {

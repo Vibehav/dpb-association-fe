@@ -50,7 +50,11 @@ export function dialerUrl(value: string) {
   return `tel:+91${normalisePhone(value)}`;
 }
 
-/** `wa.me` target — WhatsApp wants the country code with no `+`. */
-export function whatsAppUrl(value: string) {
-  return `https://wa.me/91${normalisePhone(value)}`;
+/**
+ * `wa.me` target — WhatsApp wants the country code with no `+`. With `text`, the chat opens
+ * with that message typed in (the receipt), ready to send.
+ */
+export function whatsAppUrl(value: string, text?: string) {
+  const base = `https://wa.me/91${normalisePhone(value)}`;
+  return text ? `${base}?text=${encodeURIComponent(text)}` : base;
 }

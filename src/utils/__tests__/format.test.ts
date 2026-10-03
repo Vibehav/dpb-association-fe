@@ -1,5 +1,9 @@
 import {
+  cancelReasonLabel,
   countLine,
+  feeChipLabel,
+  formatMoney,
+  paymentModeLabel,
   formatDate,
   formatDateTime,
   idProofLabel,
@@ -141,5 +145,48 @@ describe("hasNoBusinessName", () => {
     expect(hasNoBusinessName({ businessName: null })).toBe(true);
     expect(hasNoBusinessName({ businessName: "  " })).toBe(true);
     expect(hasNoBusinessName({ businessName: "Shree Traders" })).toBe(false);
+  });
+});
+
+describe("formatMoney", () => {
+  it("groups in the Indian way — last three, then pairs", () => {
+    expect(formatMoney(0)).toBe("₹0");
+    expect(formatMoney(501)).toBe("₹501");
+    expect(formatMoney(2100)).toBe("₹2,100");
+    expect(formatMoney(482500)).toBe("₹4,82,500");
+    expect(formatMoney(12345678)).toBe("₹1,23,45,678");
+  });
+
+  it("reads the API's two-decimal numbers as whole rupees", () => {
+    expect(formatMoney(5000.0)).toBe("₹5,000");
+  });
+
+  it("never renders a withheld figure as ₹0", () => {
+    // `spent` and `balance` arrive null for a collector — withheld, not zero.
+    expect(formatMoney(null)).toBe("—");
+    expect(formatMoney(undefined)).toBe("—");
+  });
+});
+
+describe("feeChipLabel", () => {
+  it("has words for every position a shop can be in this year", () => {
+    expect(feeChipLabel("PAID")).toBe("Fee paid");
+    expect(feeChipLabel("PARTIAL")).toBe("Part paid");
+    expect(feeChipLabel("PENDING")).toBe("Due");
+  });
+
+  it("has none for NO_DEMAND — no year open or no demand raised, so no chip at all", () => {
+    expect(feeChipLabel("NO_DEMAND")).toBeNull();
+  });
+});
+
+describe("money labels", () => {
+  it("keeps UPI in capitals and title-cases the rest", () => {
+    expect(paymentModeLabel("UPI")).toBe("UPI");
+    expect(paymentModeLabel("CHEQUE")).toBe("Cheque");
+  });
+
+  it("reads a cancel reason as a sentence", () => {
+    expect(cancelReasonLabel("CASH_NOT_RECEIVED")).toBe("Cash not received");
   });
 });

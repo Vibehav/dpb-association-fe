@@ -21,6 +21,12 @@ type Props = NativeStackScreenProps<AppStackParamList, "ShopTransfer">;
  *
  * `tillDate` is left to the server, which defaults it to today. A date picker for
  * backdating a transfer is worth adding if the committee asks for it.
+ *
+ * The screen does double duty. On a shop with **no** holder — one whose owner was deleted
+ * before the API guarded that — the same endpoint installs a holder instead of replacing
+ * one, and it is the only way out of that state. Nothing is being taken from anyone there,
+ * so the consequence copy must not claim a predecessor, and the former-holder record on the
+ * shop is left as it is.
  */
 export function ShopTransferScreen({ navigation, route }: Props) {
   const { shopId } = route.params;
@@ -42,6 +48,7 @@ export function ShopTransferScreen({ navigation, route }: Props) {
 
   const data = shop.data;
   const currentOwner = data.people.find((link) => link.role === "OWNER");
+  const isAssignment = !currentOwner;
 
   async function run(body: TransferRequest) {
     setError(null);
@@ -57,9 +64,11 @@ export function ShopTransferScreen({ navigation, route }: Props) {
   if (creating) {
     return (
       <Screen>
-        <Text style={typography.eyebrow}>New licence holder for {data.shopNumber}</Text>
+        <Text style={typography.eyebrow}>
+          {isAssignment ? "Licence holder for" : "New licence holder for"} {data.shopNumber}
+        </Text>
         <MemberForm
-          submitLabel="Transfer licence"
+          submitLabel={isAssignment ? "Assign licence holder" : "Transfer licence"}
           submitting={transfer.isPending}
           error={error}
           onSubmit={(person) => run({ newPerson: person })}
@@ -84,30 +93,47 @@ export function ShopTransferScreen({ navigation, route }: Props) {
             <Text style={typography.body}>{formatPhone(currentOwner.phone)}</Text>
           </>
         ) : (
-          <Text style={typography.body}>Not on record.</Text>
+          <Text style={typography.body}>None on record.</Text>
         )}
       </Card>
 
       <Card>
-        <Text style={typography.eyebrow}>What a transfer does</Text>
-        <Text style={typography.body}>
-          {currentOwner?.name ?? "The current holder"} is replaced as licence holder, and this
-          shop records them as the former holder with today&apos;s date.
-        </Text>
-        <Text style={typography.body}>
-          Everything they have contributed stays on their own profile — those were their
-          payments. Nothing moves to the new holder.
-        </Text>
+        {isAssignment ? (
+          <>
+            <Text style={typography.eyebrow}>What assigning does</Text>
+            <Text style={typography.body}>
+              This shop has no licence holder on record. The member you choose becomes the
+              holder — nobody is being replaced, so no former holder is recorded and anything
+              already shown as &quot;Previously&quot; on the shop stays as it is.
+            </Text>
+          </>
+        ) : (
+          <>
+            <Text style={typography.eyebrow}>What a transfer does</Text>
+            <Text style={typography.body}>
+              {currentOwner.name} is replaced as licence holder, and this shop records them as
+              the former holder with today&apos;s date.
+            </Text>
+            <Text style={typography.body}>
+              Everything they have contributed stays on their own profile — those were their
+              payments. Nothing moves to the new holder.
+            </Text>
+          </>
+        )}
       </Card>
 
       {error ? <Banner message={error} /> : null}
 
-      <Button label="Choose new licence holder" icon="search" onPress={() => setSearchOpen(true)} />
+      <Button
+        label={isAssignment ? "Choose licence holder" : "Choose new licence holder"}
+        icon="search"
+        onPress={() => setSearchOpen(true)}
+      />
 
       <PersonSearchSheet
         visible={searchOpen}
         onClose={() => setSearchOpen(false)}
-        title="New licence holder"
+        title={isAssignment ? "Licence holder" : "New licence holder"}
         hint="Search first — a duplicate profile splits someone's record in two."
         // The current owner can't be transferred to themselves (400 `already_owner`).
         excludeIds={currentOwner ? [currentOwner.personId] : []}

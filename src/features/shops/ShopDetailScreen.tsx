@@ -53,6 +53,12 @@ export function ShopDetailScreen({ navigation, route }: Props) {
   }
 
   const data = shop.data;
+  /**
+   * A shop can legitimately have no licence holder: a member deleted before the API guarded
+   * that took their owner link with them. Transfer is the only way back, so the screen names
+   * the state and points at it rather than rendering a people list that is quietly short.
+   */
+  const hasLicenceHolder = data.people.some((link) => link.role === "OWNER");
 
   async function onDelete() {
     setActionError(null);
@@ -113,6 +119,16 @@ export function ShopDetailScreen({ navigation, route }: Props) {
 
       <Card>
         <Text style={typography.eyebrow}>People at this shop</Text>
+        {!hasLicenceHolder ? (
+          <Banner
+            tone="notice"
+            message={
+              isAdmin
+                ? "No licence holder on record. Use Transfer licence below to assign one."
+                : "No licence holder on record. An admin can assign one."
+            }
+          />
+        ) : null}
         {/* The API returns these ordered owner, renter, then staff. */}
         {data.people.map((link) => (
           <PersonRow
@@ -141,7 +157,7 @@ export function ShopDetailScreen({ navigation, route }: Props) {
         <Card>
           <Text style={typography.eyebrow}>Admin</Text>
           <Button
-            label="Transfer licence"
+            label={hasLicenceHolder ? "Transfer licence" : "Assign licence holder"}
             variant="secondary"
             icon="swap-horizontal-outline"
             onPress={() => navigation.navigate("ShopTransfer", { shopId })}

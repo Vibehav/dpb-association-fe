@@ -21,7 +21,8 @@ export function ShopCard({ shop, onPress }: { shop: ShopListItem; onPress: () =>
       <BusinessName businessName={shop.businessName} style={typography.cardTitle} />
 
       <Text style={typography.body}>
-        {/* The API guarantees exactly one owner, but don't crash if that ever changes. */}
+        {/* At most one owner, and possibly none — a shop whose holder was deleted before
+            the API guarded that is ownerless until someone transfers into it. */}
         {shop.licenceHolderName ?? "Licence holder not on record"}
       </Text>
 

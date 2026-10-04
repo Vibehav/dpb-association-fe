@@ -91,9 +91,49 @@ background, is dropped. (Inferred from the library's source; there was no device
 **Step 1, done:** no number is passed, so WhatsApp gets one launch carrying the PDF and opens
 its picker. JS-only — works on the existing dev build after a reload.
 
-**Step 2, next:** a small single-intent native module of our own (one `ACTION_SEND` with the
-file *and* the `jid`), replacing `react-native-share`. Worst case it falls back to the picker
-with the PDF still attached, never an empty chat. Needs a new build.
+**Step 2:** a small single-intent native module of our own — see *Step 2 — plan* below.
+
+## Step 2 — one launch, PDF and number together
+
+> **Status:** implemented 2026-10-04. 222 tests green; the module compiles
+> (`:whatsapp-share:compileDebugKotlin`) and the merged debug manifest carries the
+> `com.whatsapp` query. Verified on an Android phone the same day.
+
+Why the libraries can't just do this: Android's share mechanism has no "recipient" — it hands a
+file to an app. WhatsApp's [official Android integration](https://whatsapp.com/faq/android/28000012)
+is "share to WhatsApp" (no recipient) and click-to-chat links (a recipient, text only). Picking
+the chat uses the undocumented `jid` extra, which per developer reports opens the chat
+directly **only when the number is in the phone's contacts** — otherwise WhatsApp shows its
+picker. `react-native-share` launches twice to get round that, and Android 10+'s
+[background-launch rules](https://developer.android.com/guide/components/activities/background-starts)
+drop the second launch.
+
+**Design**
+
+- A local Expo module, `modules/whatsapp-share` (Android only), with one function:
+  `sharePdf(contentUri, phone)`. It starts a single `ACTION_SEND` from the current activity —
+  in the foreground, so no background-launch rule applies — with `setPackage("com.whatsapp")`,
+  `type application/pdf`, `EXTRA_STREAM` + `ClipData` for the file,
+  `FLAG_GRANT_READ_URI_PERMISSION`, and `jid = <91XXXXXXXXXX>@s.whatsapp.net`.
+- The file link is `expo-file-system`'s own `File.contentUri` (its FileProvider already
+  covers the cache folder) — no FileProvider of ours.
+- The module's own manifest declares `<queries><package android:name="com.whatsapp"/></queries>`;
+  library manifests merge into the app's, so no config plugin is needed.
+- JS loads it with `requireOptionalNativeModule`: a build without the module shows "update the
+  app" on Send instead of crashing at start — the ExpoPrint crash on 2026-10-04 is why.
+- `react-native-share` and `expo-build-properties` are removed, with the plugin entry in
+  `app.json`.
+
+| Member's number | Result |
+|---|---|
+| Saved in the collector's contacts | Their chat opens with the PDF attached — tap Send |
+| Not saved | WhatsApp's picker, with the PDF attached |
+| WhatsApp not installed | "WhatsApp is not installed on this phone." on the receipt screen |
+
+Never an empty chat: the number and the file travel in the same launch. WhatsApp Business-only
+phones are not handled (`com.whatsapp.w4b`) — a two-line addition if wanted.
+
+Needs a new build (native module added, one removed).
 
 ## Known limits
 

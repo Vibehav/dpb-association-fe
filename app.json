@@ -43,15 +43,7 @@
           "cameraPermission": "Allow Market Association to capture member photos, ID-proof images and bill photos."
         }
       ],
-      "expo-asset",
-      [
-        "react-native-share",
-        {
-          "android": [
-            "com.whatsapp"
-          ]
-        }
-      ]
+      "expo-asset"
     ]
   }
 }

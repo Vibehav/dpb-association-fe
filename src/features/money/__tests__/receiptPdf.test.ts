@@ -2,21 +2,17 @@
  * The receipt PDF, made on the phone and handed to WhatsApp.
  *
  * Two things matter. The document prints the server's words — and never lets a typed name
- * become markup. And the hand-off gives WhatsApp a PDF named after the receipt, in a single
- * launch, leaving at most one receipt file behind on the phone.
+ * become markup. And the hand-off gives WhatsApp the PDF's content link and the member's number
+ * (country code, no plus) together, leaving at most one receipt file behind on the phone.
  */
 
 import * as Print from "expo-print";
-import Share from "react-native-share";
+import { sharePdfToWhatsApp } from "../../../../modules/whatsapp-share";
 import type { Receipt } from "../../../api";
 import { receiptBalanceLine, receiptFileName, receiptHtml, sendReceiptPdf } from "../receiptPdf";
 
 jest.mock("expo-print", () => ({ printToFileAsync: jest.fn() }));
-jest.mock("react-native-share", () => ({
-  __esModule: true,
-  default: { shareSingle: jest.fn() },
-  Social: { Whatsapp: "whatsapp" }
-}));
+jest.mock("../../../../modules/whatsapp-share", () => ({ sharePdfToWhatsApp: jest.fn() }));
 
 /** An in-memory stand-in for the cache folder — enough to see what is created and removed. */
 const mockFiles = new Set<string>();
@@ -27,6 +23,10 @@ jest.mock("expo-file-system", () => {
     uri: string;
     constructor(...parts: unknown[]) {
       this.uri = join(...parts);
+    }
+    /** What expo-file-system's FileProvider would hand out for a cache file. */
+    get contentUri() {
+      return this.uri.replace("file:///cache/", "content://app.FileSystemFileProvider/cached_expo_files/");
     }
     move(dest: File) {
       mockFiles.delete(this.uri);
@@ -87,7 +87,7 @@ const receipt: Receipt = {
 };
 
 const printToFile = Print.printToFileAsync as jest.Mock;
-const shareSingle = Share.shareSingle as jest.Mock;
+const share = sharePdfToWhatsApp as jest.Mock;
 
 beforeEach(() => {
   mockFiles.clear();
@@ -95,7 +95,7 @@ beforeEach(() => {
     mockFiles.add("file:///cache/Print/abc123.pdf");
     return { uri: "file:///cache/Print/abc123.pdf", numberOfPages: 1 };
   });
-  shareSingle.mockResolvedValue({ success: true, message: "" });
+  share.mockResolvedValue(undefined);
 });
 
 afterEach(() => jest.clearAllMocks());
@@ -142,20 +142,16 @@ describe("receiptBalanceLine", () => {
 });
 
 describe("sendReceiptPdf", () => {
-  it("hands WhatsApp a PDF named after the receipt, in one launch with no target number", async () => {
+  it("hands WhatsApp the PDF and the member's number together, in one call", async () => {
     await sendReceiptPdf(receipt);
 
     expect(printToFile).toHaveBeenCalledWith(expect.objectContaining({ html: receiptHtml(receipt) }));
     expect(receiptFileName(receipt)).toBe("DPB-2026-27-0004.pdf");
-    expect(shareSingle).toHaveBeenCalledWith({
-      social: "whatsapp",
-      url: "file:///cache/receipts/DPB-2026-27-0004.pdf",
-      type: "application/pdf",
-      filename: "DPB-2026-27-0004.pdf"
-    });
-    // With a number the library launches WhatsApp twice and Android drops the second — the
-    // one carrying the file. Until the single-intent module lands, none is sent.
-    expect(shareSingle.mock.calls[0][0]).not.toHaveProperty("whatsAppNumber");
+    expect(share).toHaveBeenCalledTimes(1);
+    expect(share).toHaveBeenCalledWith(
+      "content://app.FileSystemFileProvider/cached_expo_files/receipts/DPB-2026-27-0004.pdf",
+      "919820020001"
+    );
   });
 
   it("leaves at most one receipt PDF on the phone", async () => {

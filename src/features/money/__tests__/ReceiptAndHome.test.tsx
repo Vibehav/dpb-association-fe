@@ -25,7 +25,6 @@ jest.mock("../receiptPdf", () => ({
   sendReceiptPdf: jest.fn().mockResolvedValue(undefined)
 }));
 jest.mock("expo-print", () => ({ printToFileAsync: jest.fn() }));
-jest.mock("react-native-share", () => ({ __esModule: true, default: { shareSingle: jest.fn() }, Social: { Whatsapp: "whatsapp" } }));
 jest.mock("../../../utils/deviceActions", () => ({ openWhatsApp: jest.fn(), callNumber: jest.fn() }));
 jest.mock("../../../hooks/useRefreshOnFocus", () => ({ useRefreshOnFocus: () => undefined }));
 jest.mock("@react-navigation/native", () => ({

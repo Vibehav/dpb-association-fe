@@ -12,9 +12,10 @@
 
 import { Directory, File, Paths } from "expo-file-system";
 import * as Print from "expo-print";
-import Share, { Social, type ShareSingleOptions } from "react-native-share";
+import { sharePdfToWhatsApp } from "../../../modules/whatsapp-share";
 import type { Receipt } from "../../api";
 import { formatDateTime, formatMoney, paymentModeLabel } from "../../utils/format";
+import { normalisePhone } from "../../utils/phone";
 
 /** A5 portrait in points — a receipt, not a letter. */
 const PAGE = { width: 420, height: 595 };
@@ -100,18 +101,17 @@ export function receiptHtml(r: Receipt): string {
 }
 
 /**
- * Builds the PDF and hands it to WhatsApp, which opens its "Send to…" picker with the PDF
- * attached; the collector picks the member and taps Send. Android only.
+ * Builds the PDF and opens WhatsApp with it attached, aimed at the member: their chat when the
+ * number is in the phone's contacts, WhatsApp's picker otherwise. The collector taps Send.
+ * Android only.
  *
  * The file is named after the receipt number and written to its own cache folder, which is
  * emptied first — so at most one receipt PDF is ever left on the phone. It is not removed
  * straight after sharing, because WhatsApp reads it after this call has already returned.
  *
- * **Why no target number (for now).** Given `whatsAppNumber`, `react-native-share` launches
- * WhatsApp twice — the chat first, the file 10 ms later — and on current Android the second
- * launch, made from the background, is dropped: the member's chat opened with nothing in it.
- * One launch with no number always arrives with the PDF. Opening the member's chat directly
- * returns with a single-intent native module of our own.
+ * The hand-off is our own module (`modules/whatsapp-share`): the file and the number go in
+ * **one** launch. `react-native-share` used two, and Android dropped the second — the one with
+ * the file — leaving an empty chat.
  */
 export async function sendReceiptPdf(r: Receipt): Promise<void> {
   if (!r.whatsappPhone) throw new Error("This payer has no WhatsApp number on record.");
@@ -127,11 +127,6 @@ export async function sendReceiptPdf(r: Receipt): Promise<void> {
   const pdf = new File(folder, receiptFileName(r));
   new File(uri).move(pdf);
 
-  const options: ShareSingleOptions = {
-    social: Social.Whatsapp,
-    url: pdf.uri,
-    type: "application/pdf",
-    filename: receiptFileName(r)
-  };
-  await Share.shareSingle(options);
+  // `contentUri` comes from expo-file-system's own FileProvider, which covers the cache.
+  await sharePdfToWhatsApp(pdf.contentUri, `91${normalisePhone(r.whatsappPhone)}`);
 }

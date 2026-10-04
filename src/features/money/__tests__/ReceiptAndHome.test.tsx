@@ -9,14 +9,24 @@
  */
 
 import type { QueryClient } from "@tanstack/react-query";
-import { render, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { Platform } from "react-native";
 import { contributionsApi, dashboardApi, peopleApi, shopsApi, type Dashboard, type Receipt } from "../../../api";
 import { usePermissions } from "../../../auth/usePermissions";
 import { testQueryClient, withQueryClient } from "../../../testing/render";
 import { HomeScreen } from "../../home/HomeScreen";
 import { ReceiptScreen } from "../ReceiptScreen";
+import { sendReceiptPdf } from "../receiptPdf";
 
 jest.mock("../../../auth/usePermissions");
+// The PDF hand-off is covered in receiptPdf.test.ts; here only whether the screen uses it.
+jest.mock("../receiptPdf", () => ({
+  ...jest.requireActual("../receiptPdf"),
+  sendReceiptPdf: jest.fn().mockResolvedValue(undefined)
+}));
+jest.mock("expo-print", () => ({ printToFileAsync: jest.fn() }));
+jest.mock("react-native-share", () => ({ __esModule: true, default: { shareSingle: jest.fn() }, Social: { Whatsapp: "whatsapp" } }));
+jest.mock("../../../utils/deviceActions", () => ({ openWhatsApp: jest.fn(), callNumber: jest.fn() }));
 jest.mock("../../../hooks/useRefreshOnFocus", () => ({ useRefreshOnFocus: () => undefined }));
 jest.mock("@react-navigation/native", () => ({
   ...jest.requireActual("@react-navigation/native"),
@@ -86,6 +96,7 @@ afterEach(() => {
   client.clear();
   client.unmount();
   jest.restoreAllMocks();
+  jest.clearAllMocks();
 });
 
 async function renderReceipt(overrides: Partial<Receipt> = {}) {
@@ -135,6 +146,26 @@ describe("the receipt", () => {
     expect(view.getByLabelText("Send cancellation notice on WhatsApp")).toBeTruthy();
     expect(view.getByText(/replaced by DPB\/2026-27\/0008/)).toBeTruthy();
     expect(view.queryByLabelText("Cancel receipt")).toBeNull();
+  });
+
+  it("sends a live receipt as a PDF on Android", async () => {
+    asRole("COLLECTOR");
+    jest.replaceProperty(Platform, "OS", "android");
+    const view = await renderReceipt();
+
+    await fireEvent.press(view.getByLabelText("Send receipt on WhatsApp"));
+    await waitFor(() => expect(sendReceiptPdf).toHaveBeenCalledWith(expect.objectContaining({ id: 55 })));
+  });
+
+  it("keeps a cancelled receipt's notice as text, not a PDF", async () => {
+    asRole("ADMIN");
+    jest.replaceProperty(Platform, "OS", "android");
+    const { openWhatsApp } = jest.requireMock("../../../utils/deviceActions");
+    const view = await renderReceipt({ cancelled: true, cancelReason: "WRONG_AMOUNT" });
+
+    await fireEvent.press(view.getByLabelText("Send cancellation notice on WhatsApp"));
+    expect(openWhatsApp).toHaveBeenCalledWith("9820020001", receipt.whatsappMessage);
+    expect(sendReceiptPdf).not.toHaveBeenCalled();
   });
 
   it("offers no WhatsApp action to a payer with no number", async () => {

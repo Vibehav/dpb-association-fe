@@ -1,7 +1,9 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { errorMessage } from "../../api";
 import { usePermissions } from "../../auth/usePermissions";
-import { Button, Card, ErrorState, LoadingScreen, Screen } from "../../components/ui";
+import { Banner, Button, Card, ErrorState, LoadingScreen, Screen } from "../../components/ui";
 import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
 import type { AppStackParamList } from "../../navigation/types";
 import { colors, spacing, typography } from "../../theme";
@@ -9,6 +11,7 @@ import { openWhatsApp } from "../../utils/deviceActions";
 import { cancelReasonLabel, formatDateTime, formatMoney, paymentModeLabel } from "../../utils/format";
 import { StatusTag } from "./components/StatusTag";
 import { useReceipt } from "./hooks";
+import { receiptBalanceLine, sendReceiptPdf } from "./receiptPdf";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Receipt">;
 
@@ -21,13 +24,19 @@ type Props = NativeStackScreenProps<AppStackParamList, "Receipt">;
  * every phone prints the same document.
  *
  * Admins correct or cancel from here (decided with the client: bigger targets than links on a
- * history row, and the whole receipt is in view while deciding). Print waits for Phase 4's PDF.
+ * history row, and the whole receipt is in view while deciding).
+ *
+ * Sending: on Android the receipt is made into a PDF on the phone and WhatsApp opens in the
+ * member's chat with it attached (see `receiptPdf.ts`). A cancelled receipt still sends the
+ * server's cancellation notice as text — it is a notice, not a receipt.
  */
 export function ReceiptScreen({ navigation, route }: Props) {
   const { contributionId } = route.params;
   const { canWrite, isAdmin } = usePermissions();
   const receipt = useReceipt(contributionId);
   useRefreshOnFocus(receipt.refetch);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   if (receipt.isPending) return <LoadingScreen />;
   if (receipt.error || !receipt.data) {
@@ -39,16 +48,24 @@ export function ReceiptScreen({ navigation, route }: Props) {
   }
 
   const r = receipt.data;
-  // As at issue: "Balance due ₹X" while something was left, "Fee fully paid" on the part
-  // that completed the year, nothing on a fee paid in one go or a non-fee receipt.
-  const balanceLine =
-    r.feeBalanceAfter === null
-      ? null
-      : r.feeBalanceAfter > 0
-        ? `Balance due ${formatMoney(r.feeBalanceAfter)}`
-        : r.purposeLabel.includes("part payment")
-          ? "Fee fully paid"
-          : null;
+  const balanceLine = receiptBalanceLine(r);
+
+  async function sendOnWhatsApp() {
+    const phone = r.whatsappPhone as string;
+    if (r.cancelled || Platform.OS !== "android") {
+      openWhatsApp(phone, r.whatsappMessage);
+      return;
+    }
+    setSendError(null);
+    setSending(true);
+    try {
+      await sendReceiptPdf(r);
+    } catch (caught) {
+      setSendError(errorMessage(caught, "Couldn't open WhatsApp with the receipt."));
+    } finally {
+      setSending(false);
+    }
+  }
 
   function openPayer() {
     if (r.payer.type === "MEMBER") navigation.navigate("PersonProfile", { personId: r.payer.id });
@@ -112,12 +129,14 @@ export function ReceiptScreen({ navigation, route }: Props) {
         </View>
       </Card>
 
+      {sendError ? <Banner message={sendError} /> : null}
       {r.whatsappPhone ? (
         <Button
           // For a cancelled receipt the server's text is the cancellation notice (spec §11).
           label={r.cancelled ? "Send cancellation notice on WhatsApp" : "Send receipt on WhatsApp"}
           icon="logo-whatsapp"
-          onPress={() => openWhatsApp(r.whatsappPhone as string, r.whatsappMessage)}
+          loading={sending}
+          onPress={sendOnWhatsApp}
         />
       ) : (
         <Text style={typography.bodySmall}>No phone number on record — show this receipt on screen instead.</Text>

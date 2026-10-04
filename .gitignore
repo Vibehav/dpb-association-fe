@@ -17,5 +17,10 @@ coverage/
 
 # Native projects are build output — regenerate with `npx expo prebuild --clean`.
 # Editing them by hand leaves the managed workflow and --clean will wipe your edits.
-android/
-ios/
+# Anchored to the root: a local module's own `modules/*/android` is source, not output —
+# but its Gradle build folders are output.
+/android/
+/ios/
+modules/*/android/build/
+modules/*/android/.gradle/
+modules/*/android/.cxx/

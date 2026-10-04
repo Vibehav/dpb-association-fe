@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Android 11+ hides other apps from ours unless they are declared. Library manifests merge
+       into the app's, so this needs no config plugin. -->
+  <queries>
+    <package android:name="com.whatsapp" />
+  </queries>
+</manifest>

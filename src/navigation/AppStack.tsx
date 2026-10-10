@@ -1,6 +1,8 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { AccountScreen } from "../features/account/AccountScreen";
 import { ChangePinScreen } from "../features/account/ChangePinScreen";
+import { EventFormScreen } from "../features/events/EventFormScreen";
+import { EventScreen } from "../features/events/EventScreen";
 import { AddCommitteeMemberScreen } from "../features/committee/AddCommitteeMemberScreen";
 import { CommitteeScreen } from "../features/committee/CommitteeScreen";
 import { CancelledReceiptsScreen } from "../features/money/CancelledReceiptsScreen";
@@ -8,6 +10,7 @@ import { CollectScreen } from "../features/money/CollectScreen";
 import { DonorEditScreen } from "../features/money/DonorEditScreen";
 import { DonorProfileScreen } from "../features/money/DonorProfileScreen";
 import { FeeCycleScreen } from "../features/money/FeeCycleScreen";
+import { OpeningBalanceScreen } from "../features/money/OpeningBalanceScreen";
 import { ReceiptActionScreen } from "../features/money/ReceiptActionScreen";
 import { ReceiptScreen } from "../features/money/ReceiptScreen";
 import { AddMemberScreen } from "../features/people/AddMemberScreen";
@@ -18,6 +21,10 @@ import { ShopAddPersonScreen } from "../features/shops/ShopAddPersonScreen";
 import { ShopDetailScreen } from "../features/shops/ShopDetailScreen";
 import { ShopFormScreen } from "../features/shops/ShopFormScreen";
 import { ShopTransferScreen } from "../features/shops/ShopTransferScreen";
+import { SpendingEditScreen } from "../features/spending/SpendingEditScreen";
+import { SpendingFormScreen } from "../features/spending/SpendingFormScreen";
+import { SpendingScreen } from "../features/spending/SpendingScreen";
+import { SpendingVoidScreen } from "../features/spending/SpendingVoidScreen";
 import { colors, fontFamilies } from "../theme";
 import { MainTabs } from "./MainTabs";
 import type { AppStackParamList } from "./types";
@@ -107,6 +114,31 @@ export function AppStack() {
         name="DonorEdit"
         component={DonorEditScreen}
         options={{ presentation: "modal", title: "Edit donor" }}
+      />
+      <Stack.Screen
+        name="OpeningBalance"
+        component={OpeningBalanceScreen}
+        options={{ presentation: "modal", title: "Opening balance" }}
+      />
+
+      {/* Money — v2 Phase 2. */}
+      <Stack.Screen name="Event" component={EventScreen} options={{ title: "Event" }} />
+      <Stack.Screen name="EventForm" component={EventFormScreen} options={{ presentation: "modal" }} />
+      <Stack.Screen
+        name="SpendingForm"
+        component={SpendingFormScreen}
+        options={{ presentation: "modal", title: "Add spending" }}
+      />
+      <Stack.Screen name="Spending" component={SpendingScreen} options={{ title: "Spending" }} />
+      <Stack.Screen
+        name="SpendingEdit"
+        component={SpendingEditScreen}
+        options={{ presentation: "modal", title: "Edit spending" }}
+      />
+      <Stack.Screen
+        name="SpendingVoid"
+        component={SpendingVoidScreen}
+        options={{ presentation: "modal", title: "Void spending" }}
       />
     </Stack.Navigator>
   );

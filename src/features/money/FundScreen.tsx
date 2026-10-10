@@ -1,35 +1,50 @@
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { FlatList, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Card, EmptyState, ErrorState, ListFooter } from "../../components/ui";
+import type { FundIncomeRow, FundSummary, Spending } from "../../api";
+import { Button, Card, Chip, ChipRow, EmptyState, ErrorState, ListFooter } from "../../components/ui";
 import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
 import type { AppStackParamList } from "../../navigation/types";
 import { colors, spacing, typography } from "../../theme";
-import { formatDate, formatMoney, paymentModeLabel } from "../../utils/format";
-import { StatusTag } from "./components/StatusTag";
-import { useFundIncome, useFundSummary } from "./hooks";
+import { formatDate, formatMoney } from "../../utils/format";
+import { SpendingRow } from "../spending/components/SpendingRow";
+import { Figure, FigureRow } from "./components/Figures";
+import { IncomeRow } from "./components/IncomeRow";
+import { useFundIncome, useFundSpendings, useFundSummary } from "./hooks";
+
+type Tab = "spend" | "income";
+type Row = { kind: "spend"; item: Spending } | { kind: "income"; item: FundIncomeRow };
 
 /**
  * The general fund ledger (spec §6.10) — an admin-only tab. The endpoint itself refuses
  * anyone else, so this is not merely hidden.
  *
- * Phase 1 has income only: fees and one-off giving. Spending — and with it the Spendings tab
- * and the statement — arrives with Phase 2, so `spent` is shown as the server sends it (0).
+ * Income is fees and one-off giving; spending is running costs and "event support" — an event's
+ * bill paid from here, tagged with the event. The balance also counts the opening balance and
+ * whatever events have moved in, so the screen spells those out: collected − spent alone would
+ * not add up to it.
  */
 export function FundScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const [tab, setTab] = useState<Tab>("spend");
   const summary = useFundSummary();
   const income = useFundIncome();
+  const spendings = useFundSpendings(tab === "spend");
+  const list = tab === "spend" ? spendings : income;
 
   async function refresh() {
-    await Promise.all([summary.refetch(), income.refetch()]);
+    await Promise.all([summary.refetch(), list.refetch()]);
   }
   useRefreshOnFocus(refresh);
 
-  const rows = income.data?.pages.flatMap((page) => page.content) ?? [];
-  const total = income.data?.pages[0]?.totalElements ?? 0;
-  const error = summary.error ?? (rows.length === 0 ? income.error : null);
+  const rows: Row[] =
+    tab === "spend"
+      ? (spendings.data?.pages.flatMap((page) => page.content) ?? []).map((item) => ({ kind: "spend" as const, item }))
+      : (income.data?.pages.flatMap((page) => page.content) ?? []).map((item) => ({ kind: "income" as const, item }));
+  const total = list.data?.pages[0]?.totalElements ?? 0;
+  const error = summary.error ?? (rows.length === 0 ? list.error : null);
 
   if (error) {
     return (
@@ -43,60 +58,57 @@ export function FundScreen() {
     <SafeAreaView style={styles.safe} edges={["bottom"]}>
       <FlatList
         data={rows}
-        keyExtractor={(row) => String(row.id)}
+        keyExtractor={(row) => `${row.kind}${row.item.id}`}
         contentContainerStyle={styles.content}
-        refreshing={summary.isRefetching || income.isRefetching}
+        refreshing={summary.isRefetching || list.isRefetching}
         onRefresh={refresh}
         onEndReachedThreshold={0.4}
         onEndReached={() => {
-          if (income.hasNextPage && !income.isFetchingNextPage) income.fetchNextPage();
+          if (list.hasNextPage && !list.isFetchingNextPage) list.fetchNextPage();
         }}
         ListHeaderComponent={
           <View style={styles.header}>
-            <Card>
-              <Text style={typography.eyebrow}>General fund balance</Text>
-              <Text style={styles.balance}>{formatMoney(summary.data?.balance)}</Text>
-              <View style={styles.figures}>
-                <Figure label="Collected" value={summary.data?.collected} />
-                <Figure label="Spent" value={summary.data?.spent} />
-                <Figure label="Receipts" text={summary.data ? String(summary.data.receiptCount) : "—"} />
-              </View>
-            </Card>
-            <Text style={typography.eyebrow}>Income</Text>
+            {summary.data ? (
+              <Header
+                summary={summary.data}
+                onOpening={() => navigation.navigate("OpeningBalance")}
+                onEvent={(eventId) => navigation.navigate("Event", { eventId })}
+              />
+            ) : null}
+            <ChipRow>
+              <Chip label="Spendings" selected={tab === "spend"} onPress={() => setTab("spend")} />
+              <Chip label="Income" selected={tab === "income"} onPress={() => setTab("income")} />
+            </ChipRow>
+            {tab === "spend" ? (
+              <Button label="Add spending" icon="add" onPress={() => navigation.navigate("SpendingForm")} />
+            ) : null}
           </View>
         }
-        renderItem={({ item }) => (
-          <Card
-            onPress={() => navigation.navigate("Receipt", { contributionId: item.id })}
-            accessibilityLabel={`Receipt ${item.receiptNo}`}
-          >
-            <View style={styles.row}>
-              <View style={styles.rowText}>
-                <Text style={[typography.cardTitle, item.cancelled && styles.struckText]}>{item.payerName}</Text>
-                <Text style={typography.bodySmall}>
-                  {item.purposeLabel} · {paymentModeLabel(item.paymentMode)} · {formatDate(item.collectedAt)}
-                </Text>
-                <Text style={styles.mono}>{item.receiptNo}</Text>
-              </View>
-              <View style={styles.rowEnd}>
-                <Text style={[styles.amount, item.cancelled && styles.struckText]}>{formatMoney(item.amount)}</Text>
-                {item.cancelled ? <StatusTag label="CANCELLED" tone="error" /> : null}
-              </View>
-            </View>
-          </Card>
-        )}
+        renderItem={({ item: row }) =>
+          row.kind === "spend" ? (
+            <SpendingRow
+              spending={row.item}
+              context="fund"
+              onPress={() => navigation.navigate("Spending", { spendingId: row.item.id })}
+            />
+          ) : (
+            <IncomeRow row={row.item} onPress={() => navigation.navigate("Receipt", { contributionId: row.item.id })} />
+          )
+        }
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={
-          income.isPending ? null : (
+          list.isPending ? null : tab === "spend" ? (
+            <EmptyState icon="receipt-outline" title="No spending yet" message="Running costs and event support appear here." />
+          ) : (
             <EmptyState icon="cash-outline" title="No income yet" message="Receipts appear here as they are issued." />
           )
         }
         ListFooterComponent={
           <ListFooter
-            loading={income.isFetchingNextPage}
-            hasMore={Boolean(income.hasNextPage)}
-            error={income.error && rows.length > 0 ? income.error : undefined}
-            onRetry={income.fetchNextPage}
+            loading={list.isFetchingNextPage}
+            hasMore={Boolean(list.hasNextPage)}
+            error={list.error && rows.length > 0 ? list.error : undefined}
+            onRetry={list.fetchNextPage}
             endLabel={total > 0 ? `All ${total.toLocaleString("en-IN")} shown` : undefined}
           />
         }
@@ -105,12 +117,62 @@ export function FundScreen() {
   );
 }
 
-function Figure({ label, value, text }: { label: string; value?: number; text?: string }) {
+function Header({
+  summary: f,
+  onOpening,
+  onEvent
+}: {
+  summary: FundSummary;
+  onOpening: () => void;
+  onEvent: (eventId: number) => void;
+}) {
+  const extras = [
+    f.openingBalance ? `opening balance ${formatMoney(f.openingBalance.amount)} (as on ${formatDate(f.openingBalance.asOn)})` : null,
+    f.movedIn !== 0 ? `${formatMoney(f.movedIn)} moved in from events` : null
+  ].filter(Boolean);
+
   return (
-    <View style={styles.figure}>
-      <Text style={typography.eyebrow}>{label}</Text>
-      <Text style={styles.figureValue}>{text ?? formatMoney(value)}</Text>
-    </View>
+    <>
+      <Card>
+        <Text style={typography.eyebrow}>General fund balance</Text>
+        <Text style={styles.balance}>{formatMoney(f.balance)}</Text>
+        <FigureRow>
+          <Figure label="Collected" value={f.collected} />
+          <Figure label="Spent" value={f.spent} />
+          <Figure label="Receipts" text={String(f.receiptCount)} />
+        </FigureRow>
+        {extras.length > 0 ? <Text style={typography.bodySmall}>Includes {extras.join(" and ")}.</Text> : null}
+        {f.eventSupport > 0 ? (
+          <Text style={typography.bodySmall}>
+            {formatMoney(f.eventSupport)} of general fund spending went to support events.
+          </Text>
+        ) : null}
+        {f.movedInLines.map((line) => (
+          <Pressable
+            key={line.eventId}
+            style={styles.line}
+            onPress={() => onEvent(line.eventId)}
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${line.eventName}`}
+          >
+            <Text style={[typography.bodySmall, styles.flex]}>From {line.eventName}</Text>
+            <Text style={styles.mono}>{formatMoney(line.amount)}</Text>
+          </Pressable>
+        ))}
+      </Card>
+
+      {f.openingBalance ? (
+        <Button label="Opening balance" variant="ghost" onPress={onOpening} />
+      ) : (
+        <Card onPress={onOpening} accessibilityLabel="Enter the opening balance">
+          <Text style={typography.cardTitle}>Enter the opening balance</Text>
+          <Text style={typography.bodySmall}>
+            What the association already holds, so the balance matches the bank. Until then, a bill paid out of older
+            money can&apos;t be recorded.
+          </Text>
+        </Card>
+      )}
+    </>
   );
 }
 
@@ -119,14 +181,8 @@ const styles = StyleSheet.create({
   content: { padding: spacing.screen, gap: spacing.md, flexGrow: 1 },
   header: { gap: spacing.md },
   balance: { ...typography.display, fontSize: 32 },
-  figures: { flexDirection: "row", gap: spacing.md, marginTop: spacing.sm },
-  figure: { flex: 1, gap: 2 },
-  figureValue: { ...typography.mono, fontSize: 14 },
-  row: { flexDirection: "row", gap: spacing.sm },
-  rowText: { flex: 1, gap: 2 },
-  rowEnd: { alignItems: "flex-end", gap: 4 },
-  amount: { ...typography.mono, fontSize: 14 },
-  mono: { ...typography.mono, fontSize: 11 },
-  struckText: { textDecorationLine: "line-through", color: colors.muted },
+  line: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingTop: spacing.xs },
+  flex: { flex: 1 },
+  mono: { ...typography.mono, fontSize: 12 },
   separator: { height: spacing.md }
 });

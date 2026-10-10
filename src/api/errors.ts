@@ -119,7 +119,6 @@ export const SERVER_ERROR_CODES = [
    * Confirm, and resend with `confirmPartPayment: true`.
    */
   "part_payment_unconfirmed",
-  "events_not_available", // 400 · EVENT_DONATION before Phase 2
   "contribution_not_found", // 404
   "already_cancelled", // 409 · cancel or correct on a cancelled receipt
   "donor_not_found", // 404
@@ -137,6 +136,37 @@ export const SERVER_ERROR_CODES = [
    * must be collected from the current holder first. Show the message; it names the amount.
    */
   "fee_outstanding",
+
+  // --- money: events and spending (v2 Phase 2) -----------------------------------
+  // Messages are written to be shown as-is; they name the event and the amounts.
+  "event_required", // 400 · EVENT_DONATION without eventId, or paidFrom EVENT without one
+  "event_not_expected", // 400 · eventId with another purpose
+  "event_not_found", // 404 · also a general-funded event to a collector or viewer
+  "event_has_no_fund", // 400 · a general-funded event takes no donations and has no fund to pay from
+  "event_closed", // 409 · no new donation or spending; refresh the picker / the event
+  "duplicate_event_name", // 409 · ignoring case
+  "invalid_dates", // 400 · the end date is before the start
+  "event_not_empty", // 409 · type switch or delete once anything was recorded
+  "already_closed", // 409
+  "move_choice_required", // 400 · money is left — choose to move it or keep it
+  "event_balance_negative", // 409 · the event is short; the message says what to do
+  "event_not_closed", // 409 · move-balance before close
+  "balance_already_moved", // 409
+  "nothing_to_move", // 409
+  "paid_from_required", // 400 · an own-fund event's bill must say which fund pays
+  /**
+   * 409 · the bill is bigger than what the event's fund holds. When something is left the
+   * message is the **split offer** ("confirm to pay ₹10,000 from it and the remaining ₹5,000
+   * from the general fund") — resend with `splitToGeneral: true`.
+   */
+  "event_fund_short",
+  "general_fund_short", // 409 · no spending may take the general fund below ₹0
+  "future_date", // 400 · a spending or opening balance dated after today
+  "spending_not_found", // 404
+  "already_voided", // 409
+  "bill_missing", // 404 · no bill on file
+  "opening_balance_exists", // 409 · void it first
+  "opening_balance_not_found", // 404
 
   // --- generic --------------------------------------------------------------
   "forbidden", // 403 · authenticated but the role isn't allowed

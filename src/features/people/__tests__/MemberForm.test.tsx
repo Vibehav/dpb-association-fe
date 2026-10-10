@@ -60,7 +60,8 @@ beforeEach(() => {
   mockSlots = {
     PHOTO: slot(ready("photos/p.jpg")),
     ID_PROOF_FRONT: slot(ready("id-proofs/f.jpg")),
-    ID_PROOF_BACK: slot({ status: "empty" })
+    ID_PROOF_BACK: slot({ status: "empty" }),
+    BILL: slot({ status: "empty" })
   };
 });
 

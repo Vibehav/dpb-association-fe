@@ -63,6 +63,7 @@ const receipt: Receipt = {
   purpose: "ANNUAL_FEE",
   purposeLabel: "Association fee 2026-27 · part payment",
   fund: "GENERAL",
+  event: null,
   amount: 2000,
   amountInWords: "Rupees Two Thousand only",
   feeBalanceAfter: 3000,

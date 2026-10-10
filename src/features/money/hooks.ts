@@ -1,6 +1,7 @@
 /**
- * Server state for money (v2 Phase 1): receipts, the fee year, the general fund, donors and
- * the dashboard.
+ * Server state for money: receipts, the fee year, the general fund (with its opening balance),
+ * donors and the dashboard. Events and spending have their own hooks in `features/events` and
+ * `features/spending`, but share `useMoneyInvalidation`.
  *
  * One rule governs the writes: a receipt moves **many** figures at once — the fund, the
  * dashboard, a shop's fee status, a payer's lifetime total, the audit list — so every money
@@ -21,18 +22,28 @@ import {
   type CreateContributionRequest,
   type CreateFeeCycleRequest,
   type Id,
+  type SetOpeningBalanceRequest,
   type UpdateDonorRequest,
   type UpdateFeeCycleRequest
 } from "../../api";
 import { peopleCountQueryHash, shopCountQueryHash } from "../../app/countQueries";
 import { isIdProofQuery, queryKeys } from "../../app/queryKeys";
 
-/** Everything a money write can change. */
+/**
+ * Everything a money write can change. Since Phase 2 that includes every event's figures and
+ * the spending lists: a cancelled donation, a voided bill or a close moves money between an
+ * event and the general fund. A bill's signed URL is left alone — it is fetched on demand.
+ */
 export function useMoneyInvalidation() {
   const queryClient = useQueryClient();
   return () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
     queryClient.invalidateQueries({ queryKey: queryKeys.fund.all });
+    queryClient.invalidateQueries({ queryKey: queryKeys.events.all });
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.spendings.all,
+      predicate: (query) => query.queryKey[3] !== "bill"
+    });
     queryClient.invalidateQueries({ queryKey: queryKeys.feeCycles.all });
     queryClient.invalidateQueries({ queryKey: queryKeys.contributions.all });
     queryClient.invalidateQueries({ queryKey: queryKeys.donors.all });
@@ -178,6 +189,33 @@ export function useFundIncome() {
     queryFn: ({ pageParam }) => fundApi.income({ page: pageParam }),
     initialPageParam: 0,
     getNextPageParam: (last) => (last.page + 1 < last.totalPages ? last.page + 1 : undefined)
+  });
+}
+
+/** Running costs and event support. Loaded only when the Spendings tab is open. */
+export function useFundSpendings(enabled: boolean) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.fund.spendings,
+    queryFn: ({ pageParam }) => fundApi.spendings({ page: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (last) => (last.page + 1 < last.totalPages ? last.page + 1 : undefined),
+    enabled
+  });
+}
+
+export function useSetOpeningBalance() {
+  const invalidate = useMoneyInvalidation();
+  return useMutation({
+    mutationFn: (body: SetOpeningBalanceRequest) => fundApi.setOpeningBalance(body),
+    onSuccess: () => invalidate()
+  });
+}
+
+export function useVoidOpeningBalance() {
+  const invalidate = useMoneyInvalidation();
+  return useMutation({
+    mutationFn: (note: string) => fundApi.voidOpeningBalance(note),
+    onSuccess: () => invalidate()
   });
 }
 

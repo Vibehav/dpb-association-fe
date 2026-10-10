@@ -201,3 +201,49 @@ export function feeChipLabel(status: string): string | null {
   if (status === "PENDING") return "Due";
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// dates people pick, and events (v2 Phase 2)
+// ---------------------------------------------------------------------------
+
+/** India has no daylight saving: IST is always UTC+05:30. */
+const IST_OFFSET_MS = 330 * 60 * 1000;
+
+/**
+ * Today in India as `YYYY-MM-DD` — what a spending's date and an event's status are measured
+ * against on the server. Worked out by offset rather than `Intl`, which Hermes may lack.
+ */
+export function todayIso(now: Date = new Date()) {
+  return new Date(now.getTime() + IST_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+/** `YYYY-MM-DD` → a local `Date` at midnight — the value a date picker shows. */
+export function isoToDate(iso: string) {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+/** A date picker's `Date` → `YYYY-MM-DD`, read in the phone's own calendar. */
+export function dateToIso(date: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** "08 Oct 2026 – 18 Oct 2026", or one date when there is no end (or it ends the same day). */
+export function eventDates(startsOn: string, endsOn: string | null) {
+  if (!endsOn || endsOn === startsOn) return formatDate(startsOn);
+  return `${formatDate(startsOn)} – ${formatDate(endsOn)}`;
+}
+
+/** The status chip's words. */
+export function eventStatusLabel(status: string) {
+  if (status === "ACTIVE") return "Active";
+  if (status === "OPEN") return "Open";
+  if (status === "CLOSED") return "Closed";
+  return titleCase(status);
+}
+
+/** "NOT_PAID" → "Not paid". Same shape as the receipt cancel reasons. */
+export function voidReasonLabel(reason: string) {
+  return cancelReasonLabel(reason);
+}

@@ -61,6 +61,7 @@ const receipt: Receipt = {
   purpose: "ANNUAL_FEE",
   purposeLabel: "Association fee 2026-27 · part payment",
   fund: "GENERAL",
+  event: null,
   amount: 2000,
   amountInWords: "Rupees Two Thousand only",
   feeBalanceAfter: 3000,
@@ -180,12 +181,16 @@ describe("Home", () => {
     collected: 42102,
     spent: 0,
     balance: 42102,
+    openingBalance: 0,
+    movedIn: 0,
     shopsOnRecord: 6,
     peopleLinked: 7,
     fee: {
       yearLabel: "2026-27", demandRaised: true, pendingCount: 0, pendingAmount: 0,
       partialCount: 0, partialDue: 0, arrearsShopCount: 0, arrearsAmount: 0
     },
+    eventFunds: { eventCount: 0, collected: 0, balance: 0 },
+    activeEvents: [],
     topContributors: []
   };
 
@@ -216,6 +221,55 @@ describe("Home", () => {
     expect(view.getByText("₹42,102")).toBeTruthy();
     expect(view.queryByText(/^Spent /)).toBeNull();
     expect(view.getByText("Spendings are visible to the treasurer only.")).toBeTruthy();
+  });
+
+  it("tells an admin what the balance includes beyond collected − spent", async () => {
+    asRole("ADMIN");
+    const view = await renderHome({ ...base, openingBalance: 300000, movedIn: 27000 });
+    expect(view.getByText("Includes opening balance ₹3,00,000 and ₹27,000 from events.")).toBeTruthy();
+  });
+
+  const ganeshCard = {
+    id: 1, name: "Ganeshotsav 2026", startsOn: "2026-10-08", endsOn: "2026-10-18", ownFund: true,
+    collected: 55000, spentFromEventFund: 8300, spentFromGeneral: 3000, balance: 46700
+  };
+
+  it("gives an admin the event funds held and a full card for each active event", async () => {
+    asRole("ADMIN");
+    const view = await renderHome({
+      ...base,
+      eventFunds: { eventCount: 2, collected: 65000, balance: 46700 },
+      activeEvents: [
+        ganeshCard,
+        { id: 2, name: "Diwali lighting", startsOn: "2026-10-20", endsOn: null, ownFund: false,
+          collected: null, spentFromEventFund: null, spentFromGeneral: 12000, balance: null }
+      ]
+    });
+
+    expect(view.getByText("Event funds · kept separate")).toBeTruthy();
+    expect(view.getByText("2 events with their own fund")).toBeTruthy();
+    expect(view.getAllByText("₹46,700").length).toBe(2); // the tile, and Ganeshotsav's remaining
+    expect(view.getByText("Remaining")).toBeTruthy();
+    expect(view.getByText("₹11,300")).toBeTruthy(); // spent, whichever fund paid
+    expect(view.getByText("₹3,000 of it came from the general fund")).toBeTruthy();
+    expect(view.getByText("Spent from general fund")).toBeTruthy();
+    expect(view.getByText("₹12,000")).toBeTruthy();
+  });
+
+  it("gives a collector what was collected for events, nothing spent or held", async () => {
+    asRole("COLLECTOR");
+    const view = await renderHome({
+      ...base, showOutgoing: false, spent: null, balance: null, openingBalance: null, movedIn: null,
+      eventFunds: { eventCount: 1, collected: 55000, balance: null },
+      activeEvents: [{ ...ganeshCard, spentFromEventFund: null, spentFromGeneral: null, balance: null }]
+    });
+
+    expect(view.getByText("1 event with their own fund · collected")).toBeTruthy();
+    expect(view.getAllByText("₹55,000").length).toBe(2); // the tile and the card
+    expect(view.queryByText("Remaining")).toBeNull();
+    expect(view.queryByText(/came from the general fund/)).toBeNull();
+    // The card's withheld figures leave no trace, rather than reading as ₹0.
+    expect(view.queryByText("Spent")).toBeNull();
   });
 
   it("says when no demand is raised, instead of showing pending figures", async () => {

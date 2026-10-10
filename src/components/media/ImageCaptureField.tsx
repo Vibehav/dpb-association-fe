@@ -49,7 +49,7 @@ export function ImageCaptureField({ label, capture, type, note, required }: Prop
         ) : (
           <View style={styles.placeholder}>
             <Ionicons
-              name={square ? "person-outline" : "id-card-outline"}
+              name={square ? "person-outline" : type === "BILL" ? "receipt-outline" : "id-card-outline"}
               size={28}
               color={colors.muted}
             />

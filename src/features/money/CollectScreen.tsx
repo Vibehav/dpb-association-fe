@@ -29,9 +29,10 @@ import {
 } from "../../components/ui";
 import type { AppStackParamList } from "../../navigation/types";
 import { typography } from "../../theme";
-import { formatMoney, paymentModeLabel } from "../../utils/format";
+import { eventDates, formatMoney, paymentModeLabel } from "../../utils/format";
 import { normalisePhone } from "../../utils/phone";
 import { validatePhone } from "../../utils/validators";
+import { useCollectableEvents } from "../events/hooks";
 import { PayerPickerSheet } from "./components/PayerPickerSheet";
 import { useCollect, useDonor } from "./hooks";
 
@@ -59,6 +60,10 @@ type FeeOption = { feeCycleId: Id | null; yearLabel: string; due: number };
  *
  * Every figure shown (what is due, the year) comes from the shop's fee card; nothing about
  * the fee is computed here.
+ *
+ * An event donation (v2 Phase 2) is tagged to an open own-fund event from the server's picker
+ * list — members and donors alike. A closed or general-funded event never appears there, and
+ * the server refuses it anyway (409 `event_closed`) if it closed while this form was open.
  */
 export function CollectScreen({ navigation, route }: Props) {
   const params = route.params ?? {};
@@ -77,6 +82,7 @@ export function CollectScreen({ navigation, route }: Props) {
   const [donorName, setDonorName] = useState("");
   const [donorPhone, setDonorPhone] = useState("");
   const [donorOrganisation, setDonorOrganisation] = useState("");
+  const [eventId, setEventId] = useState<Id | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** The part-payment question, with the message to ask it in. */
   const [confirmPart, setConfirmPart] = useState<string | null>(null);
@@ -115,6 +121,16 @@ export function CollectScreen({ navigation, route }: Props) {
       }
     }
   }, [payer, params.personId, params.donorId, params.shopId, presetPerson.data, presetDonor.data, feeShop.data]);
+
+  // ---- the event ---------------------------------------------------------------
+  const events = useCollectableEvents(purpose === "EVENT_DONATION");
+  const openEvents = useMemo(() => events.data ?? [], [events.data]);
+  const chosenEvent = openEvents.find((event) => event.id === eventId) ?? null;
+
+  useEffect(() => {
+    // As in the design: the first open event is preselected, until the collector picks one.
+    if (purpose === "EVENT_DONATION" && chosenEvent === null && openEvents.length > 0) setEventId(openEvents[0].id);
+  }, [purpose, chosenEvent, openEvents]);
 
   // ---- the fee ---------------------------------------------------------------
   const ownedShops = useMemo(
@@ -184,6 +200,14 @@ export function CollectScreen({ navigation, route }: Props) {
       };
     }
 
+    if (purpose === "EVENT_DONATION") {
+      if (!chosenEvent) {
+        setError("Pick the event this donation is for.");
+        return null;
+      }
+      body.eventId = chosenEvent.id;
+    }
+
     if (purpose === "ANNUAL_FEE") {
       if (!shopId || !selected) {
         setError("Nothing is due on this shop.");
@@ -223,13 +247,23 @@ export function CollectScreen({ navigation, route }: Props) {
         setConfirmPart(caught.message);
         return;
       }
+      // The event closed while this form was open: say so and refresh the picker.
+      if (isCode(caught, "event_closed")) {
+        setEventId(null);
+        events.refetch();
+      }
       setConfirmPart(null);
       setError(errorMessage(caught));
     }
   }
 
   // ---- render ----------------------------------------------------------------
-  const fund = "Credited to the general fund";
+  const fund =
+    purpose !== "EVENT_DONATION"
+      ? "Credited to the general fund"
+      : chosenEvent
+        ? `Credited to the ${chosenEvent.name} fund`
+        : "No open event selected";
 
   return (
     <Screen>
@@ -276,12 +310,42 @@ export function CollectScreen({ navigation, route }: Props) {
             disabled={!canPayFee}
             onPress={() => setPurpose("ANNUAL_FEE")}
           />
+          <Chip
+            label="Event donation"
+            selected={purpose === "EVENT_DONATION"}
+            onPress={() => setPurpose("EVENT_DONATION")}
+          />
           <Chip label="One-off" selected={purpose === "ONE_OFF"} onPress={() => setPurpose("ONE_OFF")} />
         </ChipRow>
         {payer && !canPayFee ? (
           <Text style={typography.bodySmall}>
-            The annual fee is paid by a shop&apos;s licence holder. {payer.kind === "member" ? "This member holds none." : "A donor can give a one-off."}
+            The annual fee is paid by a shop&apos;s licence holder. {payer.kind === "member" ? "This member holds none." : "A donor can give a one-off or an event donation."}
           </Text>
+        ) : null}
+
+        {purpose === "EVENT_DONATION" ? (
+          <>
+            <Text style={typography.eyebrow}>Tag to event</Text>
+            {events.isPending ? <Text style={typography.bodySmall}>Loading open events…</Text> : null}
+            {events.error ? <Text style={typography.bodySmall}>Couldn&apos;t load the open events.</Text> : null}
+            {events.data && openEvents.length === 0 ? (
+              <Text style={typography.body}>
+                No event is open right now. Record it as a one-off, or ask the treasurer to create an event.
+              </Text>
+            ) : null}
+            {openEvents.length > 0 ? (
+              <ChipRow>
+                {openEvents.map((event) => (
+                  <Chip
+                    key={event.id}
+                    label={`${event.name} · ${eventDates(event.startsOn, event.endsOn)}`}
+                    selected={eventId === event.id}
+                    onPress={() => setEventId(event.id)}
+                  />
+                ))}
+              </ChipRow>
+            ) : null}
+          </>
         ) : null}
 
         {purpose === "ANNUAL_FEE" && canPayFee ? (
@@ -343,7 +407,7 @@ export function CollectScreen({ navigation, route }: Props) {
           placeholder="0"
           style={styles.amountInput}
         />
-        {purpose === "ONE_OFF" ? (
+        {purpose !== "ANNUAL_FEE" ? (
           <ChipRow>
             {QUICK_AMOUNTS.map((quick) => (
               <Chip
@@ -385,17 +449,17 @@ export function CollectScreen({ navigation, route }: Props) {
           setShopId(null);
           setYearChoice(undefined);
           setAmountTouched(false);
-          if (!person.shops.some((shop) => shop.role === "OWNER")) setPurpose("ONE_OFF");
+          if (purpose === "ANNUAL_FEE" && !person.shops.some((shop) => shop.role === "OWNER")) setPurpose("ONE_OFF");
         }}
         onPickDonor={(donor) => {
           setPickerOpen(false);
           setPayer({ kind: "donor", id: donor.id, name: donor.name, subtitle: donor.organisation });
-          setPurpose("ONE_OFF");
+          if (purpose === "ANNUAL_FEE") setPurpose("ONE_OFF");
         }}
         onNewDonor={() => {
           setPickerOpen(false);
           setPayer({ kind: "newDonor" });
-          setPurpose("ONE_OFF");
+          if (purpose === "ANNUAL_FEE") setPurpose("ONE_OFF");
         }}
       />
 

@@ -14,7 +14,9 @@ import {
   ApiError,
   contributionsApi,
   donorsApi,
+  eventsApi,
   shopsApi,
+  type CollectableEvent,
   type DonorProfile,
   type Receipt,
   type ShopDetail
@@ -165,5 +167,73 @@ describe("collecting from an outside donor", () => {
     await fireEvent.press(view.getByLabelText("Save & generate receipt"));
     await waitFor(() => expect(create).toHaveBeenCalled());
     expect(create.mock.calls[0][0]).toEqual({ purpose: "ONE_OFF", amount: 2100, paymentMode: "CASH", donorId: 3 });
+  });
+});
+
+describe("an event donation", () => {
+  const donor: DonorProfile = {
+    id: 3, name: "RATNADEEP TRADERS", phone: null, whatsappPhone: null, organisation: "Sponsor",
+    address: null, addedByName: null, addedOn: "2026-10-03T10:00:00Z", lifetimeTotal: 0,
+    hasCancelled: false, contributionHistory: []
+  };
+  const ganesh: CollectableEvent = { id: 1, name: "Ganeshotsav 2026", startsOn: "2026-10-08", endsOn: "2026-10-18", status: "ACTIVE" };
+  const navratri: CollectableEvent = { id: 3, name: "Navratri 2026", startsOn: "2026-10-01", endsOn: "2026-10-12", status: "ACTIVE" };
+
+  async function renderDonation() {
+    jest.spyOn(donorsApi, "detail").mockResolvedValue(donor);
+    const view = await render(
+      <CollectScreen
+        navigation={nav}
+        route={{ key: "k", name: "Collect", params: { donorId: 3, purpose: "EVENT_DONATION" } } as never}
+      />,
+      { wrapper: withQueryClient(client) }
+    );
+    await waitFor(() => expect(view.getByText("RATNADEEP TRADERS")).toBeTruthy());
+    return view;
+  }
+
+  it("tags the first open event unless another is picked, and credits that event's fund", async () => {
+    jest.spyOn(eventsApi, "collectable").mockResolvedValue([ganesh, navratri]);
+    const create = jest.spyOn(contributionsApi, "create").mockResolvedValue(receipt);
+    const view = await renderDonation();
+
+    await waitFor(() => expect(view.getByText("Receipt number issued on save · collected by Nitin More · Credited to the Ganeshotsav 2026 fund")).toBeTruthy());
+    await fireEvent.press(view.getByText(/^Navratri 2026 ·/));
+    expect(view.getByText(/Credited to the Navratri 2026 fund/)).toBeTruthy();
+
+    await fireEvent.press(view.getByText("₹1,001"));
+    await fireEvent.press(view.getByLabelText("Save & generate receipt"));
+    await waitFor(() => expect(create).toHaveBeenCalled());
+    expect(create.mock.calls[0][0]).toEqual({
+      purpose: "EVENT_DONATION", amount: 1001, paymentMode: "CASH", donorId: 3, eventId: 3
+    });
+  });
+
+  it("says so when no event is open, and sends nothing", async () => {
+    jest.spyOn(eventsApi, "collectable").mockResolvedValue([]);
+    const create = jest.spyOn(contributionsApi, "create");
+    const view = await renderDonation();
+
+    await waitFor(() => expect(view.getByText(/No event is open right now/)).toBeTruthy());
+    await fireEvent.press(view.getByText("₹501"));
+    await fireEvent.press(view.getByLabelText("Save & generate receipt"));
+    expect(view.getByText("Pick the event this donation is for.")).toBeTruthy();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("shows the server's refusal and reloads the picker when the event closed meanwhile", async () => {
+    const collectable = jest.spyOn(eventsApi, "collectable").mockResolvedValueOnce([ganesh]).mockResolvedValue([]);
+    jest.spyOn(contributionsApi, "create").mockRejectedValue(
+      new ApiError(409, "event_closed", "Ganeshotsav 2026 is closed — record this as a one-off or pick an open event")
+    );
+    const view = await renderDonation();
+
+    await waitFor(() => expect(view.getByText(/Credited to the Ganeshotsav 2026 fund/)).toBeTruthy());
+    await fireEvent.press(view.getByText("₹501"));
+    await fireEvent.press(view.getByLabelText("Save & generate receipt"));
+
+    await waitFor(() => expect(view.getByText(/Ganeshotsav 2026 is closed/)).toBeTruthy());
+    await waitFor(() => expect(collectable).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(view.getByText(/No event is open right now/)).toBeTruthy());
   });
 });

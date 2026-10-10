@@ -4,12 +4,12 @@ import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import type { Dashboard, FeeStatus } from "../../api";
+import type { ActiveEventCard, Dashboard, FeeStatus } from "../../api";
 import { usePermissions } from "../../auth/usePermissions";
 import { Button, Card, ErrorState, Screen } from "../../components/ui";
 import type { AppStackParamList, MainTabsParamList, ShopFeeFilter } from "../../navigation/types";
 import { colors, spacing, typography } from "../../theme";
-import { formatMoney, shopTitle } from "../../utils/format";
+import { eventDates, formatMoney, shopTitle } from "../../utils/format";
 import { useDashboard } from "../money/hooks";
 import { useShopsList } from "../shops/hooks";
 import { usePeopleCount, useShopCount } from "./useCounts";
@@ -33,6 +33,9 @@ const PREVIEW = 3;
  * The fee is three separate things, as agreed with the client: shops with nothing paid yet,
  * shops part paid, and arrears from closed years. Each list comes from the shops endpoint's
  * own `feeStatus` / `arrears` filter, server-side.
+ *
+ * Events (v2 Phase 2): the "Event funds · kept separate" tile and one card per event active
+ * today, shaped by role on the server the same way — collected only for a collector or viewer.
  */
 export function HomeScreen() {
   const navigation = useNavigation<HomeNavigation>();
@@ -56,6 +59,9 @@ export function HomeScreen() {
       ) : (
         <>
           {d ? <FundCard dashboard={d} onOpen={isAdmin ? () => navigation.navigate("Fund") : undefined} /> : null}
+          {d && d.eventFunds.eventCount > 0 ? (
+            <EventFundsCard dashboard={d} onOpen={() => navigation.navigate("Events")} />
+          ) : null}
 
           {canWrite ? (
             <Button label="Record a contribution" icon="cash-outline" onPress={() => navigation.navigate("Collect")} />
@@ -75,6 +81,10 @@ export function HomeScreen() {
               onPress={() => navigation.navigate("People")}
             />
           </View>
+
+          {d?.activeEvents.map((event) => (
+            <ActiveEvent key={event.id} event={event} onOpen={() => navigation.navigate("Event", { eventId: event.id })} />
+          ))}
 
           {d ? <FeeCard dashboard={d} isAdmin={isAdmin} canWrite={canWrite} navigation={navigation} /> : null}
 
@@ -116,6 +126,12 @@ function FundCard({ dashboard, onOpen }: { dashboard: Dashboard; onOpen?: () => 
       </Card>
     );
   }
+  // The balance also counts the opening balance and money moved in from events — say so, or
+  // collected − spent visibly fails to add up to it.
+  const extras = [
+    dashboard.openingBalance ? `opening balance ${formatMoney(dashboard.openingBalance)}` : null,
+    dashboard.movedIn ? `${formatMoney(dashboard.movedIn)} from events` : null
+  ].filter(Boolean);
   return (
     <Card onPress={onOpen} accessibilityLabel="Open the general fund">
       <Text style={typography.eyebrow}>General fund balance</Text>
@@ -124,7 +140,98 @@ function FundCard({ dashboard, onOpen }: { dashboard: Dashboard; onOpen?: () => 
         <Text style={[typography.body, styles.flex]}>Collected {formatMoney(dashboard.collected)}</Text>
         <Text style={[typography.body, styles.flex]}>Spent {formatMoney(dashboard.spent)}</Text>
       </View>
+      {extras.length > 0 ? <Text style={typography.bodySmall}>Includes {extras.join(" and ")}.</Text> : null}
     </Card>
+  );
+}
+
+/**
+ * "Event funds · kept separate". An admin sees what every own-fund event still holds; anyone
+ * else sees what has been collected for events not yet closed (their `balance` is withheld).
+ */
+function EventFundsCard({ dashboard, onOpen }: { dashboard: Dashboard; onOpen: () => void }) {
+  const funds = dashboard.eventFunds;
+  const admin = dashboard.showOutgoing;
+  const noun = funds.eventCount === 1 ? "event" : "events";
+  return (
+    <Card onPress={onOpen} accessibilityLabel="Open events">
+      <View style={styles.row}>
+        <View style={styles.flex}>
+          <Text style={typography.eyebrow}>Event funds · kept separate</Text>
+          <Text style={typography.bodySmall}>
+            {funds.eventCount} {noun} with their own fund{admin ? "" : " · collected"}
+          </Text>
+        </View>
+        <Text style={styles.mono}>{formatMoney(admin ? funds.balance : funds.collected)}</Text>
+      </View>
+    </Card>
+  );
+}
+
+/**
+ * One event active today. Own fund, admin: collected / spent / remaining and the three-part
+ * bar — own-fund spend, general-fund support, unspent. General-funded (admins only ever get
+ * one): what the general fund spent. Anyone else: collected only.
+ */
+function ActiveEvent({ event: e, onOpen }: { event: ActiveEventCard; onOpen: () => void }) {
+  const admin = e.spentFromGeneral !== null;
+  return (
+    <Card>
+      <View style={styles.row}>
+        <View style={styles.flex}>
+          <Text style={typography.eyebrow}>Active event</Text>
+          <Text style={typography.cardTitle}>{e.name}</Text>
+          <Text style={typography.bodySmall}>{eventDates(e.startsOn, e.endsOn)}</Text>
+        </View>
+        <Button label="Open" variant="secondary" onPress={onOpen} />
+      </View>
+
+      {!e.ownFund ? (
+        <>
+          <Text style={typography.eyebrow}>Spent from general fund</Text>
+          <Text style={styles.mono}>{formatMoney(e.spentFromGeneral)}</Text>
+          <Text style={typography.bodySmall}>Paid from the general fund · no separate collection for this event</Text>
+        </>
+      ) : admin ? (
+        <>
+          <View style={styles.row}>
+            <Figure label="Collected" value={e.collected} />
+            <Figure label="Spent" value={(e.spentFromEventFund ?? 0) + (e.spentFromGeneral ?? 0)} />
+            <Figure label="Remaining" value={e.balance} />
+          </View>
+          <SpendBar event={e} />
+          <Text style={typography.bodySmall}>
+            {e.spentFromGeneral && e.spentFromGeneral > 0
+              ? `${formatMoney(e.spentFromGeneral)} of it came from the general fund`
+              : "All of it paid from this event's own collection"}
+          </Text>
+        </>
+      ) : (
+        <Figure label="Collected" value={e.collected} />
+      )}
+    </Card>
+  );
+}
+
+/** Own-fund spend · general-fund support · unspent, as shares of what was collected. */
+function SpendBar({ event: e }: { event: ActiveEventCard }) {
+  const collected = e.collected ?? 0;
+  if (collected <= 0) return null;
+  const share = (value: number | null) => `${Math.max(0, Math.min(100, ((value ?? 0) / collected) * 100))}%` as const;
+  return (
+    <View style={styles.bar} accessibilityLabel="How the collection was spent">
+      <View style={[styles.barPart, { width: share(e.spentFromEventFund), backgroundColor: colors.primary }]} />
+      <View style={[styles.barPart, { width: share(e.spentFromGeneral), backgroundColor: colors.warning }]} />
+    </View>
+  );
+}
+
+function Figure({ label, value }: { label: string; value: number | null }) {
+  return (
+    <View style={styles.flex}>
+      <Text style={typography.eyebrow}>{label}</Text>
+      <Text style={styles.mono}>{formatMoney(value)}</Text>
+    </View>
   );
 }
 
@@ -272,5 +379,14 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border
   },
   countCard: { flex: 1, gap: spacing.sm },
+  bar: {
+    flexDirection: "row",
+    height: 8,
+    borderRadius: 4,
+    overflow: "hidden",
+    backgroundColor: colors.soft,
+    marginVertical: spacing.sm
+  },
+  barPart: { height: "100%" },
   countValue: { ...typography.display, fontSize: 30 }
 });

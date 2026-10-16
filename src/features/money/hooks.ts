@@ -40,6 +40,8 @@ export function useMoneyInvalidation() {
     queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
     queryClient.invalidateQueries({ queryKey: queryKeys.fund.all });
     queryClient.invalidateQueries({ queryKey: queryKeys.events.all });
+    // A cash receipt collected, cancelled or corrected moves a collector's cash figures.
+    queryClient.invalidateQueries({ queryKey: queryKeys.cash.all });
     queryClient.invalidateQueries({
       queryKey: queryKeys.spendings.all,
       predicate: (query) => query.queryKey[3] !== "bill"

@@ -168,6 +168,16 @@ export const SERVER_ERROR_CODES = [
   "opening_balance_exists", // 409 · void it first
   "opening_balance_not_found", // 404
 
+  // --- money: cash handover (v2 Phase 3) ------------------------------------------
+  "nothing_to_hand_over", // 409 · no cash with the collector
+  "handover_pending", // 409 · one is already waiting; withdraw to hand over everything together
+  "handover_not_pending", // 409 · already counted or withdrawn
+  "handover_not_found", // 404 · also another collector's handover
+  "note_required", // 400 · the counted amount differs and there is no note
+  "nothing_to_settle", // 409 · nothing open in that direction
+  "settle_above_outstanding", // 400
+  "collector_not_found", // 404
+
   // --- generic --------------------------------------------------------------
   "forbidden", // 403 · authenticated but the role isn't allowed
   // 400 · bean-validation failure, where `message` names the field — and also an

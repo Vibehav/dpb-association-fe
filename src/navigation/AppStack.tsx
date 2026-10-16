@@ -3,6 +3,9 @@ import { AccountScreen } from "../features/account/AccountScreen";
 import { ChangePinScreen } from "../features/account/ChangePinScreen";
 import { EventFormScreen } from "../features/events/EventFormScreen";
 import { EventScreen } from "../features/events/EventScreen";
+import { CashHandoversScreen } from "../features/cash/CashHandoversScreen";
+import { CollectorCashScreen } from "../features/cash/CollectorCashScreen";
+import { HandoverScreen } from "../features/cash/HandoverScreen";
 import { AddCommitteeMemberScreen } from "../features/committee/AddCommitteeMemberScreen";
 import { CommitteeScreen } from "../features/committee/CommitteeScreen";
 import { CancelledReceiptsScreen } from "../features/money/CancelledReceiptsScreen";
@@ -140,6 +143,11 @@ export function AppStack() {
         component={SpendingVoidScreen}
         options={{ presentation: "modal", title: "Void spending" }}
       />
+
+      {/* Money — v2 Phase 3. */}
+      <Stack.Screen name="CashHandovers" component={CashHandoversScreen} options={{ title: "Cash handovers" }} />
+      <Stack.Screen name="CollectorCash" component={CollectorCashScreen} options={{ title: "Collector's cash" }} />
+      <Stack.Screen name="Handover" component={HandoverScreen} options={{ title: "Handover" }} />
     </Stack.Navigator>
   );
 }

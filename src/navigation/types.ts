@@ -98,4 +98,12 @@ export type AppStackParamList = {
   SpendingEdit: { spendingId: Id };
   /** Admin only. */
   SpendingVoid: { spendingId: Id };
+
+  // ---- money (v2 Phase 3) ----
+  /** Admin only. */
+  CashHandovers: undefined;
+  /** Admin only. */
+  CollectorCash: { collectorId: Id };
+  /** Admin, or the collector who filed it. */
+  Handover: { handoverId: Id };
 };

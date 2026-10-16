@@ -9,7 +9,9 @@ import { usePermissions } from "../../auth/usePermissions";
 import { Avatar, Button, Card, ErrorState, Screen } from "../../components/ui";
 import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
 import { spacing, typography } from "../../theme";
-import { titleCase } from "../../utils/format";
+import { formatMoney, titleCase } from "../../utils/format";
+import { MyCashCard } from "../cash/components/MyCashCard";
+import { useCollectorsCash } from "../cash/hooks";
 import { formatPhone } from "../../utils/phone";
 
 /**
@@ -18,8 +20,8 @@ import { formatPhone } from "../../utils/phone";
  * Identity, the rights statement, Change M-PIN, lock and sign-out; for an admin, the
  * committee and — since v2 Phase 1 — the annual fee year and cancelled receipts.
  *
- * Cash with you, Cash handovers and Reports from the design are later money phases and stay
- * absent until their API exists.
+ * Since Phase 3: a collector's "Cash with you" card, and an admin's Cash handovers row with what
+ * is still with the collectors. Reports from the design stay absent until their API exists.
  */
 export function AccountScreen() {
   const { phone, lock, signOut } = useAuth();
@@ -57,6 +59,8 @@ export function AccountScreen() {
         </Card>
       ) : null}
 
+      {permissions.role === "COLLECTOR" ? <MyCashCard /> : null}
+
       <Button
         label="Change M-PIN"
         variant="secondary"
@@ -64,9 +68,10 @@ export function AccountScreen() {
         onPress={() => navigation.navigate("ChangePin")}
       />
 
-      {/* Admin only. Cash handovers and reports are later money phases. */}
+      {/* Admin only. Reports are a later money phase. */}
       {permissions.isAdmin ? (
         <>
+          <CashHandoversRow onPress={() => navigation.navigate("CashHandovers")} />
           <Button
             label="Annual fee"
             variant="secondary"
@@ -93,6 +98,22 @@ export function AccountScreen() {
       <Button label="Lock app" variant="secondary" icon="lock-closed-outline" onPress={lock} />
       <Button label="Sign out" variant="secondary" icon="log-out-outline" onPress={signOut} />
     </Screen>
+  );
+}
+
+/** "₹42,700 still with the collectors · 1 waiting" — loaded only for an admin. */
+function CashHandoversRow({ onPress }: { onPress: () => void }) {
+  const cash = useCollectorsCash();
+  const c = cash.data;
+  return (
+    <Card onPress={onPress} accessibilityLabel="Open cash handovers">
+      <Text style={typography.cardTitle}>Cash handovers</Text>
+      <Text style={typography.bodySmall}>
+        {c
+          ? `${formatMoney(c.totalWithCollectors)} still with the collectors${c.pendingCount > 0 ? ` · ${c.pendingCount} waiting` : ""}`
+          : "What each collector is holding"}
+      </Text>
+    </Card>
   );
 }
 

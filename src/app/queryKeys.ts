@@ -1,4 +1,4 @@
-import type { DonorListParams, EventListParams, Id, IdProofSide, PeopleListParams, ShopListParams } from "../api";
+import type { DonorListParams, EventListParams, HandoverStatus, Id, IdProofSide, PeopleListParams, ShopListParams } from "../api";
 
 /**
  * Every query key in one place, so invalidation after a mutation is a lookup rather
@@ -79,6 +79,17 @@ export const queryKeys = {
     detail: (id: Id) => ["events", "detail", id] as const,
     income: (id: Id) => ["events", "detail", id, "income"] as const,
     spendings: (id: Id) => ["events", "detail", id, "spendings"] as const
+  },
+
+  // ---- money (v2 Phase 3) -------------------------------------------------
+
+  cash: {
+    all: ["cash"] as const,
+    me: ["cash", "me"] as const,
+    collectors: ["cash", "collectors"] as const,
+    collector: (id: Id) => ["cash", "collector", id] as const,
+    handovers: (status: HandoverStatus) => ["cash", "handovers", status] as const,
+    handover: (id: Id) => ["cash", "handover", id] as const
   },
 
   spendings: {

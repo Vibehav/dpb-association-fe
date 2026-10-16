@@ -1036,3 +1036,90 @@ export type UpdateSpendingRequest = { title: string; vendor?: string; notes?: st
 export type VoidSpendingRequest = { reason: VoidReason; note?: string };
 
 export type SetOpeningBalanceRequest = { amount: number; asOn: string; note?: string };
+
+// ---------------------------------------------------------------------------
+// money — v2 Phase 3 (cash handover)
+//
+// Source: the API's `docs/fe-handoff-money-phase3.md`. Only collectors hold cash; an admin's cash
+// is the treasury's. Every figure is derived on the server — a receipt cancelled or corrected,
+// even after its cash was handed over, moves them; never compute them in the app. No fund
+// balance changes here.
+// ---------------------------------------------------------------------------
+
+export type HandoverStatus = "PENDING" | "RECEIVED" | "WITHDRAWN";
+export type SettlementDirection = "COLLECTOR_PAID" | "TREASURER_RETURNED";
+
+/**
+ * One handover. `filedAmount`/`receiptCount` are as filed; `expected` is the live total of its
+ * receipts now — what "Received in full" means. Once received, `difference` =
+ * `expected − countedAmount`: > 0 short, < 0 extra.
+ */
+export type Handover = {
+  id: Id;
+  collectorId: Id;
+  collectorName: string | null;
+  status: HandoverStatus;
+  filedAmount: number;
+  receiptCount: number;
+  filedAt: string;
+  expected: number;
+  liveReceiptCount: number;
+  countedAmount: number | null;
+  difference: number | null;
+  receivedByName: string | null;
+  receivedAt: string | null;
+  note: string | null;
+  withdrawnAt: string | null;
+};
+
+/** `GET /cash/me`. All zero, `pending` null, for an admin — show no cash card. */
+export type MyCash = {
+  cashWithYou: number;
+  receiptCount: number;
+  pending: Handover | null;
+  /** > 0 short · < 0 the treasurer holds extra · 0 nothing open. */
+  outstanding: number;
+};
+
+export type CollectorCash = {
+  id: Id;
+  name: string;
+  phone: string;
+  /** False: removed, or no longer a collector — listed because something is still open. */
+  activeCollector: boolean;
+  cashWithYou: number;
+  receiptCount: number;
+  inTransit: number;
+  outstanding: number;
+  total: number;
+};
+
+export type CollectorsCash = { totalWithCollectors: number; pendingCount: number; collectors: CollectorCash[] };
+
+export type CashSettlement = {
+  id: Id;
+  direction: SettlementDirection;
+  amount: number;
+  note: string;
+  byName: string | null;
+  at: string;
+};
+
+export type CollectorCashDetail = { figures: CollectorCash; handovers: Handover[]; settlements: CashSettlement[] };
+
+export type HandoverReceipt = {
+  id: Id;
+  receiptNo: string;
+  payerName: string;
+  purposeLabel: string;
+  amount: number;
+  collectedAt: string;
+  cancelled: boolean;
+};
+
+export type HandoverDetail = { handover: Handover; receipts: HandoverReceipt[] };
+
+/** Equal to `expected` is received in full; a different amount needs a `note`. */
+export type ReceiveHandoverRequest = { countedAmount: number; note?: string };
+
+export type SettleRequest = { direction: SettlementDirection; amount: number; note: string };

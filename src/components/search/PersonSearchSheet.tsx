@@ -18,8 +18,12 @@ type Props = {
   /** One line explaining what picking a person will do. */
   hint?: string;
   onPickExisting: (person: PersonListItem) => void;
-  /** Omit to hide the create affordance — e.g. when the caller can't create people. */
-  onCreateNew?: () => void;
+  /**
+   * Omit to hide the create affordance — e.g. when the caller can't create people. Called with
+   * the name typed in the search (capitals), or "" when what was typed was a phone number, so
+   * the new person's form starts with it.
+   */
+  onCreateNew?: (typedName: string) => void;
   /** People who can't be picked here, e.g. already linked to this shop. */
   excludeIds?: Id[];
 };
@@ -66,7 +70,7 @@ export function PersonSearchSheet({
     <Sheet visible={visible} onClose={onClose} title={title}>
       {hint ? <Text style={typography.body}>{hint}</Text> : null}
 
-      <SearchBox value={term} onChangeText={setTerm} placeholder="Name or phone number" autoFocus />
+      <SearchBox uppercase value={term} onChangeText={setTerm} placeholder="Name or phone number" autoFocus />
 
       <View style={styles.results}>
         {!searching ? (
@@ -106,7 +110,7 @@ export function PersonSearchSheet({
             <Button
               label="Not on record — create new"
               icon="person-add-outline"
-              onPress={onCreateNew}
+              onPress={() => onCreateNew(/\d/.test(term) ? "" : term.trim())}
             />
           </View>
         ) : null}

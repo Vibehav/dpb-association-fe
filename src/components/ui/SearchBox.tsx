@@ -7,15 +7,21 @@ type Props = {
   onChangeText: (value: string) => void;
   placeholder: string;
   autoFocus?: boolean;
+  /**
+   * Capitalise as typed, where what is typed may become a person's name — record text is
+   * capitals. Digits (a phone number) are unaffected.
+   */
+  uppercase?: boolean;
 };
 
-export function SearchBox({ value, onChangeText, placeholder, autoFocus }: Props) {
+export function SearchBox({ value, onChangeText, placeholder, autoFocus, uppercase }: Props) {
   return (
     <View style={styles.box}>
       <Ionicons name="search" size={18} color={colors.muted} />
       <TextInput
         value={value}
-        onChangeText={onChangeText}
+        onChangeText={uppercase ? (next) => onChangeText(next.toUpperCase()) : onChangeText}
+        autoCapitalize={uppercase ? "characters" : undefined}
         placeholder={placeholder}
         placeholderTextColor={colors.muted}
         autoFocus={autoFocus}

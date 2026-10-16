@@ -24,6 +24,7 @@ export {
 export * from "./types";
 
 export { authApi } from "./authApi";
+export { cashApi } from "./cashApi";
 export { committeeApi } from "./committeeApi";
 export { contributionsApi } from "./contributionsApi";
 export { donorsApi } from "./donorsApi";

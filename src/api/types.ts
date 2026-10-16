@@ -3,8 +3,8 @@
  *
  * These are the shapes that cross the network. Nothing here is reshaped for the UI: the
  * previous client mapped responses into invented view models and quietly lost fields
- * (`tenancy`) and invented others (`floor`, `feeStatus`) that the v1 API does not have.
- * Screens consume these directly.
+ * (`tenancy`) and invented others (`floor`) that the API does not have. Screens consume
+ * these directly. (`feeStatus` was once such an invention; it is real since v2 Phase 1.)
  *
  * Sources: `docs/frontend-integration.md` §7 and the API's slice docs 02–05.
  * Optional fields are typed `| null` because that is what Jackson serialises.
@@ -66,8 +66,10 @@ export const ID_PROOF_TYPES: IdProofType[] = [
  * so the API cannot catch a front/back mix-up — only a photo key used as an ID-proof key or
  * vice versa (400 `invalid_media_key`). Wiring each capture slot to the right value is
  * therefore entirely this client's responsibility.
+ *
+ * `BILL` (v2 Phase 2) is a spending's bill photo — admin only; a collector gets 403.
  */
-export type MediaType = "PHOTO" | "ID_PROOF_FRONT" | "ID_PROOF_BACK";
+export type MediaType = "PHOTO" | "ID_PROOF_FRONT" | "ID_PROOF_BACK" | "BILL";
 
 /** Case-sensitive on the wire: it is a path segment bound by Spring's default converter. */
 export type IdProofSide = "FRONT" | "BACK";
@@ -128,6 +130,19 @@ export type ShopListItem = {
   /** Present only when someone holds a RENTER link. */
   rentedToName: string | null;
   staffCount: number;
+  /**
+   * This year's fee, for the list chip: `PAID` → "Fee paid", `PENDING`/`PARTIAL` → "Due",
+   * `NO_DEMAND` → **no chip at all** (no fee year open, or the demand not raised yet).
+   */
+  feeStatus: FeeStatus;
+  /** This year's price. Null under `NO_DEMAND`. */
+  feeAmount: number | null;
+  /** Paid so far this year. Null under `NO_DEMAND`. */
+  feePaid: number | null;
+  /** Still due this year. Null under `NO_DEMAND`. */
+  feeDue: number | null;
+  /** Still due on closed years — arrears. `0` when clear. */
+  arrearsAmount: number;
 };
 
 export type PersonAtShop = {
@@ -156,6 +171,15 @@ export type ShopDetail = {
    * never index at 0.
    */
   people: PersonAtShop[];
+  /** This year's fee card. */
+  fee: ShopFeeCard;
+  /** Closed years, newest first. Empty for a newly registered shop. */
+  earlierYears: ShopFeeYear[];
+  /**
+   * Everything still owed, across every year. The delete prompt shows it, and a licence
+   * transfer is refused while `total > 0`.
+   */
+  feeOutstanding: FeeOutstanding;
 };
 
 /** Exactly one of the two must be set. */
@@ -208,6 +232,10 @@ export type ShopListParams = {
   query?: string;
   /** Free text; there is no lane master table and no distinct-lanes endpoint. */
   lane?: string;
+  /** This year's fee position. Server-side — feeds Home's pending and part-paid lists. */
+  feeStatus?: FeeStatus;
+  /** Only shops still owing on a closed year. */
+  arrears?: boolean;
   page?: number;
   size?: number;
 };
@@ -231,6 +259,12 @@ export type PersonListItem = {
   /** 10 digits, no country code. Format for display; send the digits. */
   phone: string;
   shops: PersonShopLink[];
+  /** Everything given, cancelled receipts excluded. Never sum a history to get this. */
+  lifetimeTotal: number;
+  /** The most recent live receipt — both null for someone who has never given. */
+  lastContributionAmount: number | null;
+  /** ISO instant, UTC. */
+  lastContributionAt: string | null;
 };
 
 export type PersonProfile = {
@@ -261,6 +295,12 @@ export type PersonProfile = {
   */
   photoUrl: string | null;
   shops: PersonShopLink[];
+  /** Cancelled receipts excluded. */
+  lifetimeTotal: number;
+  /** True when the history holds a cancelled receipt — show the "not counted" note. */
+  hasCancelled: boolean;
+  /** Newest first, **cancelled rows included** so they can be struck through. */
+  contributionHistory: ContributionHistoryRow[];
 };
 
 /** The inline-new-person payload, shared by add-member, register-shop and transfer. */
@@ -420,3 +460,666 @@ export type UpdateCommitteeMemberRequest = {
   email?: string;
   name?: string;
 };
+
+// ---------------------------------------------------------------------------
+// money — v2 Phase 1 (fee cycle · contributions · receipts · donors)
+//
+// Source: the API's `docs/fe-handoff-money-phase1.md`. Amounts are JSON numbers in whole
+// rupees (`5000.00`, sometimes `0`); format with `formatMoney`. Every total arrives computed
+// with cancelled receipts excluded — never sum a list on the client.
+// ---------------------------------------------------------------------------
+
+/**
+ * `ANNUAL_FEE` needs a member who holds the shop's licence. A donor gives `ONE_OFF` or an
+ * `EVENT_DONATION`, which always names its event.
+ */
+export type Purpose = "ANNUAL_FEE" | "EVENT_DONATION" | "ONE_OFF";
+/** What the collection form offers, in the design's order. */
+export const COLLECTABLE_PURPOSES: Purpose[] = ["ANNUAL_FEE", "EVENT_DONATION", "ONE_OFF"];
+
+export type PaymentMode = "CASH" | "UPI" | "CHEQUE" | "BANK";
+export const PAYMENT_MODES: PaymentMode[] = ["CASH", "UPI", "CHEQUE", "BANK"];
+
+export type Fund = "GENERAL" | "EVENT";
+export type PayerType = "MEMBER" | "DONOR";
+
+/** Mandatory on cancel and correct; it goes on the record. */
+export type CancelReason =
+  | "WRONG_AMOUNT"
+  | "WRONG_MEMBER"
+  | "DUPLICATE_ENTRY"
+  | "CASH_NOT_RECEIVED"
+  | "OTHER";
+export const CANCEL_REASONS: CancelReason[] = [
+  "WRONG_AMOUNT",
+  "WRONG_MEMBER",
+  "DUPLICATE_ENTRY",
+  "CASH_NOT_RECEIVED",
+  "OTHER"
+];
+
+/**
+ * A fee year's position. `PENDING` = nothing paid yet, `PARTIAL` = part paid, `PAID` = done.
+ * `NO_DEMAND` describes *this* year only — no fee year open, or the demand not raised.
+ */
+export type FeeStatus = "NO_DEMAND" | "PENDING" | "PARTIAL" | "PAID";
+
+/** One live receipt paid towards a fee year — an instalment, or the whole fee at once. */
+export type FeeReceipt = {
+  id: Id;
+  receiptNo: string;
+  amount: number;
+  paymentMode: PaymentMode;
+  collectedAt: string;
+  payerName: string;
+};
+
+/**
+ * This year's fee card on the shop screen. Under `NO_DEMAND` the money fields are null and
+ * `collectable` is false; `yearLabel` and `meetingNote` are still set when a year is open.
+ */
+export type ShopFeeCard = {
+  feeCycleId: Id | null;
+  yearLabel: string | null;
+  status: FeeStatus;
+  amount: number | null;
+  paid: number | null;
+  due: number | null;
+  meetingNote: string | null;
+  /** The server's verdict — follow it for the Collect button, never infer it. */
+  collectable: boolean;
+  receipts: FeeReceipt[];
+};
+
+/** A closed year. Anything still `due` is an arrear and stays collectable. */
+export type ShopFeeYear = {
+  feeCycleId: Id;
+  yearLabel: string;
+  status: Exclude<FeeStatus, "NO_DEMAND">;
+  /** The year's price. */
+  amount: number;
+  /** What this shop actually paid — show this, not just `amount`. */
+  paid: number;
+  due: number;
+  collectable: boolean;
+  receipts: FeeReceipt[];
+};
+
+export type FeeOutstanding = {
+  total: number;
+  byYear: { feeCycleId: Id; yearLabel: string; due: number }[];
+};
+
+export type PayerSummary = {
+  type: PayerType;
+  id: Id;
+  /** As at issue — a reprint matches the original even after a rename. */
+  name: string;
+  /** "A-12 · Kadam Phool Bhandar · Owner", a donor's organisation, or null. */
+  subtitle: string | null;
+};
+
+export type AssociationHeader = {
+  name: string;
+  address: string;
+  registrationNo: string;
+  treasurerName: string;
+  treasurerTitle: string;
+};
+
+/** `GET /contributions/{id}` — every role. Also the body of every collect/correct response. */
+export type Receipt = {
+  id: Id;
+  receiptNo: string;
+  financialYear: string;
+  /** ISO instant, UTC — render in IST. */
+  collectedAt: string;
+  payer: PayerSummary;
+  /** Null when the payer has no number: offer no WhatsApp action. */
+  whatsappPhone: string | null;
+  purpose: Purpose;
+  /** Server-made, carries the fee year and "· part payment". Never rebuild it. */
+  purposeLabel: string;
+  fund: Fund;
+  /** Event donations only: the event whose fund this credits. */
+  event: EventRef | null;
+  amount: number;
+  /** Indian numbering (lakh/crore). The legally meaningful part — never rebuild it. */
+  amountInWords: string;
+  /**
+   * Fee receipts only: what was still due on that year right after this receipt, **as at
+   * issue**. Print "Balance due ₹X" above zero. It never changes — for the live position use
+   * the shop's fee card.
+   */
+  feeBalanceAfter: number | null;
+  paymentMode: PaymentMode;
+  notes: string | null;
+  collectedByName: string | null;
+  cancelled: boolean;
+  cancelReason: CancelReason | null;
+  cancelNote: string | null;
+  cancelledAt: string | null;
+  cancelledByName: string | null;
+  /** On a correction's new receipt. */
+  replacesReceiptNo: string | null;
+  /** On the cancelled original. */
+  replacedByReceiptNo: string | null;
+  association: AssociationHeader;
+  /** Ready to send. For a cancelled receipt it is the cancellation notice instead. */
+  whatsappMessage: string;
+};
+
+/** One row of a member's or donor's history. Cancelled rows are included, flagged. */
+export type ContributionHistoryRow = {
+  id: Id;
+  receiptNo: string;
+  purpose: Purpose;
+  purposeLabel: string;
+  amount: number;
+  feeBalanceAfter: number | null;
+  paymentMode: PaymentMode;
+  collectedAt: string;
+  collectedByName: string | null;
+  cancelled: boolean;
+  replacesReceiptNo: string | null;
+};
+
+export type NewDonorPayload = {
+  /** The only required field. */
+  name: string;
+  /** Optional — a walk-up donor may not give one, and then gets no WhatsApp receipt. */
+  phone?: string;
+  whatsappPhone?: string;
+  organisation?: string;
+  address?: string;
+};
+
+/**
+ * `POST /contributions`. **Exactly one payer**: `personId`, `donorId` or `newDonor`.
+ *
+ * `shopId`, `feeCycleId` and `confirmPartPayment` apply to `ANNUAL_FEE` only. Omitting
+ * `feeCycleId` means this year; a closed year's id collects an arrear. A short amount is
+ * refused with 409 `part_payment_unconfirmed` until it is resent with
+ * `confirmPartPayment: true`.
+ *
+ * `eventId` is required for `EVENT_DONATION` and refused with anything else.
+ */
+export type CreateContributionRequest = {
+  personId?: Id;
+  donorId?: Id;
+  newDonor?: NewDonorPayload;
+  purpose: Purpose;
+  /** Whole rupees, > 0. Paise are a 400. */
+  amount: number;
+  paymentMode: PaymentMode;
+  shopId?: Id;
+  feeCycleId?: Id;
+  eventId?: Id;
+  confirmPartPayment?: boolean;
+  notes?: string;
+};
+
+export type CancelContributionRequest = { reason: CancelReason; note?: string };
+
+/** Only the amount can be corrected; a wrong payer is a cancel and a fresh collection. */
+export type CorrectContributionRequest = {
+  reason: CancelReason;
+  note?: string;
+  newAmount: number;
+  confirmPartPayment?: boolean;
+};
+
+export type CancelledReceiptRow = {
+  id: Id;
+  receiptNo: string;
+  payerType: PayerType;
+  payerId: Id;
+  payerName: string;
+  amount: number;
+  purposeLabel: string;
+  collectedByName: string | null;
+  cancelReason: CancelReason;
+  cancelNote: string | null;
+  cancelledByName: string | null;
+  cancelledAt: string;
+  replacedByReceiptNo: string | null;
+};
+
+// ---- fee cycle (admin) ------------------------------------------------------
+
+export type FeeCycle = {
+  id: Id;
+  /** "2026-27" — two consecutive years with a hyphen, never an en dash. */
+  yearLabel: string;
+  amount: number;
+  meetingNote: string | null;
+  demandRaised: boolean;
+  demandRaisedAt: string | null;
+  closed: boolean;
+  closedAt: string | null;
+  /** Nothing paid yet. */
+  shopsPending: number;
+  pendingAmount: number;
+  /** Part paid; `partialDue` is what they still owe. */
+  shopsPartial: number;
+  partialDue: number;
+  shopsPaid: number;
+  /** Received against the year, cancelled receipts excluded. */
+  collected: number;
+};
+
+export type CreateFeeCycleRequest = { yearLabel: string; amount: number; meetingNote?: string };
+export type UpdateFeeCycleRequest = { amount?: number; meetingNote?: string };
+/** Only demands with nothing paid are re-priced. */
+export type RepriceResponse = { amount: number; demandsUpdated: number };
+export type RaiseDemandResponse = { shopsCharged: number };
+
+// ---- donors -----------------------------------------------------------------
+
+export type DonorListItem = {
+  id: Id;
+  name: string;
+  phone: string | null;
+  organisation: string | null;
+};
+
+export type DonorProfile = {
+  id: Id;
+  name: string;
+  phone: string | null;
+  whatsappPhone: string | null;
+  organisation: string | null;
+  address: string | null;
+  addedByName: string | null;
+  addedOn: string;
+  lifetimeTotal: number;
+  hasCancelled: boolean;
+  contributionHistory: ContributionHistoryRow[];
+};
+
+/** A full replace — an omitted optional field is cleared. Past receipts keep their name. */
+export type UpdateDonorRequest = {
+  name: string;
+  phone?: string;
+  whatsappPhone?: string;
+  organisation?: string;
+  address?: string;
+};
+
+export type DonorListParams = { query?: string; page?: number; size?: number };
+
+// ---- fund and dashboard -----------------------------------------------------
+
+/** The live opening balance — "₹3,00,000 as on 1 Apr 2026". Entered once; fixed by voiding. */
+export type OpeningBalance = {
+  id: Id;
+  amount: number;
+  /** `YYYY-MM-DD`. */
+  asOn: string;
+  note: string | null;
+  enteredByName: string | null;
+  enteredAt: string;
+};
+
+/** What one event has moved into the general fund, adjustments included. */
+export type MovedInLine = { eventId: Id; eventName: string; amount: number };
+
+/**
+ * Admin only. `balance = openingBalance + collected + movedIn − spent`, all derived on the
+ * server — never recompute it.
+ */
+export type FundSummary = {
+  fund: Fund;
+  /** Null until entered. */
+  openingBalance: OpeningBalance | null;
+  /** Fees and one-off receipts. */
+  collected: number;
+  /** Balances moved in from events. */
+  movedIn: number;
+  movedInLines: MovedInLine[];
+  /** Running costs and event support. */
+  spent: number;
+  /** The part of `spent` that went to events. */
+  eventSupport: number;
+  balance: number;
+  receiptCount: number;
+};
+
+export type FundIncomeRow = {
+  id: Id;
+  receiptNo: string;
+  payerType: PayerType;
+  payerId: Id;
+  payerName: string;
+  payerSubtitle: string | null;
+  purposeLabel: string;
+  amount: number;
+  paymentMode: PaymentMode;
+  collectedAt: string;
+  collectedByName: string | null;
+  cancelled: boolean;
+};
+
+/** Home's fee figures — three separate things, shops no longer on record left out. */
+export type DashboardFee = {
+  /** Null when no fee year is open. */
+  yearLabel: string | null;
+  demandRaised: boolean;
+  pendingCount: number;
+  pendingAmount: number;
+  partialCount: number;
+  partialDue: number;
+  arrearsShopCount: number;
+  arrearsAmount: number;
+};
+
+export type TopContributor = { payerType: PayerType; payerId: Id; name: string; total: number };
+
+/**
+ * Home's "Event funds · kept separate". Admin: every own-fund event, closed ones that kept
+ * their money included, and `balance` is what they still hold. Collector/viewer: events not
+ * yet closed, `collected` only, `balance` null.
+ */
+export type EventFunds = { eventCount: number; collected: number; balance: number | null };
+
+/**
+ * One card per event active today. Own fund: `collected` for everyone, the rest admin only.
+ * General-funded (admins only ever get one): `spentFromGeneral` alone.
+ */
+export type ActiveEventCard = {
+  id: Id;
+  name: string;
+  startsOn: string;
+  endsOn: string | null;
+  ownFund: boolean;
+  collected: number | null;
+  spentFromEventFund: number | null;
+  spentFromGeneral: number | null;
+  balance: number | null;
+};
+
+/**
+ * `GET /dashboard`, shaped by role on the server. For a collector or viewer every outgoing
+ * figure — `spent`, `balance`, `openingBalance`, `movedIn`, the event funds' balance and the
+ * spent figures on the cards — is **null** and `showOutgoing` is false: withheld, not merely
+ * hidden. Never render a null here as zero.
+ *
+ * `balance` includes the opening balance and money moved in from events.
+ */
+export type Dashboard = {
+  showOutgoing: boolean;
+  collected: number;
+  spent: number | null;
+  balance: number | null;
+  openingBalance: number | null;
+  movedIn: number | null;
+  shopsOnRecord: number;
+  peopleLinked: number;
+  fee: DashboardFee;
+  eventFunds: EventFunds;
+  activeEvents: ActiveEventCard[];
+  /** This financial year, members and donors together. */
+  topContributors: TopContributor[];
+};
+
+// ---------------------------------------------------------------------------
+// money — v2 Phase 2 (events · spending · fund separation)
+//
+// Source: the API's `docs/fe-handoff-money-phase2.md`. Every figure is computed by one server
+// formula, so the events list, an event's page, Home and the Fund screen always agree. Money
+// going out is admin-only: for anyone else it arrives as null.
+// ---------------------------------------------------------------------------
+
+/**
+ * Derived on the server from the dates (India time): `ACTIVE` while today is within them,
+ * `OPEN` when not closed but outside them (not started, or ended but not closed), `CLOSED`.
+ * An `OPEN` event still takes donations.
+ */
+export type EventStatus = "ACTIVE" | "OPEN" | "CLOSED";
+
+/** An event named on a receipt or a spending. */
+export type EventRef = { id: Id; name: string };
+
+/** `GET /events` row. Money shaped by role — never render a null as ₹0. */
+export type EventListItem = {
+  id: Id;
+  name: string;
+  /** `YYYY-MM-DD`. */
+  startsOn: string;
+  endsOn: string | null;
+  /** True: collects donations of its own. False: every bill comes from the general fund. */
+  ownFund: boolean;
+  status: EventStatus;
+  /** Its balance was moved to the general fund (at close or later). */
+  balanceMoved: boolean;
+  /** Own-fund events, every role. Null for a general-funded one. */
+  collected: number | null;
+  /** Admin only. */
+  totalSpent: number | null;
+  /** Admin only. */
+  spentFromGeneral: number | null;
+  /** Admin + own fund only. */
+  balance: number | null;
+  /** Admin + own fund only. */
+  movedOut: number | null;
+};
+
+export type TransferKind = "MOVE" | "ADJUSTMENT";
+
+/**
+ * One line of an event's record of money moved to the general fund: the move, and any
+ * adjustment a later fix wrote. `amount` may be negative. Show `description` as written.
+ */
+export type TransferLine = {
+  id: Id;
+  kind: TransferKind;
+  amount: number;
+  description: string;
+  at: string;
+  byName: string | null;
+};
+
+/** `GET /events/{id}`. Everything about money going out is null unless `showOutgoing`. */
+export type EventDetail = {
+  id: Id;
+  name: string;
+  startsOn: string;
+  endsOn: string | null;
+  ownFund: boolean;
+  status: EventStatus;
+  closedAt: string | null;
+  closedByName: string | null;
+  /** Null = kept, or not closed yet. */
+  balanceMovedAt: string | null;
+  showOutgoing: boolean;
+  collected: number | null;
+  spentFromEventFund: number | null;
+  spentFromGeneral: number | null;
+  totalSpent: number | null;
+  movedOut: number | null;
+  balance: number | null;
+  /** Admin only. Once true the event can no longer change type or be deleted. */
+  hasEntries: boolean | null;
+  /** Admin only; empty otherwise. Oldest first. */
+  transfers: TransferLine[];
+};
+
+/** The collection form's picker: own-fund events not closed. */
+export type CollectableEvent = {
+  id: Id;
+  name: string;
+  startsOn: string;
+  endsOn: string | null;
+  status: EventStatus;
+};
+
+/** Create, and the full replace behind `PATCH /events/{id}` — leave `endsOn` out to clear it. */
+export type EventRequest = {
+  name: string;
+  startsOn: string;
+  endsOn?: string;
+  ownFund: boolean;
+};
+
+export type EventListParams = { status?: EventStatus; page?: number; size?: number };
+
+/** Mandatory when voiding a spending; it goes on the record. */
+export type VoidReason = "WRONG_AMOUNT" | "WRONG_DATE" | "WRONG_FUND" | "DUPLICATE_ENTRY" | "NOT_PAID" | "OTHER";
+export const VOID_REASONS: VoidReason[] = [
+  "WRONG_AMOUNT",
+  "WRONG_DATE",
+  "WRONG_FUND",
+  "DUPLICATE_ENTRY",
+  "NOT_PAID",
+  "OTHER"
+];
+
+/**
+ * One spending entry. `paidFrom: "GENERAL"` with an `event` is event support — listed under the
+ * event, deducted from the general fund only. The amount, date and fund never change: a
+ * mistake there is voided and entered again.
+ */
+export type Spending = {
+  id: Id;
+  title: string;
+  vendor: string | null;
+  amount: number;
+  paymentMode: PaymentMode;
+  /** `YYYY-MM-DD`. */
+  spentOn: string;
+  paidFrom: Fund;
+  event: EventRef | null;
+  /** False shows as "Bill missing"; the image comes from `GET /spendings/{id}/bill`. */
+  hasBill: boolean;
+  notes: string | null;
+  recordedByName: string | null;
+  recordedAt: string;
+  lastChangedByName: string | null;
+  lastChangedAt: string;
+  voided: boolean;
+  voidReason: VoidReason | null;
+  voidNote: string | null;
+  voidedAt: string | null;
+  voidedByName: string | null;
+};
+
+/**
+ * `POST /spendings`. Which fund pays:
+ * - no `eventId` — the general fund (`paidFrom` may be left out);
+ * - a general-funded event — always the general fund;
+ * - an own-fund event — `paidFrom` is **required**.
+ *
+ * A bill too big for an event's fund is refused with 409 `event_fund_short` and a split
+ * offer; resend with `splitToGeneral: true` to save it as two entries.
+ */
+export type CreateSpendingRequest = {
+  title: string;
+  vendor?: string;
+  /** Whole rupees, > 0. */
+  amount: number;
+  paymentMode: PaymentMode;
+  /** `YYYY-MM-DD`; defaults to today (IST) on the server; never in the future. */
+  spentOn?: string;
+  notes?: string;
+  billKey?: string;
+  eventId?: Id;
+  paidFrom?: Fund;
+  splitToGeneral?: boolean;
+};
+
+/** One entry, or two for a confirmed split (event fund first). */
+export type RecordSpendingResponse = { entries: Spending[] };
+
+/** The wording only — a full replace. */
+export type UpdateSpendingRequest = { title: string; vendor?: string; notes?: string };
+
+export type VoidSpendingRequest = { reason: VoidReason; note?: string };
+
+export type SetOpeningBalanceRequest = { amount: number; asOn: string; note?: string };
+
+// ---------------------------------------------------------------------------
+// money — v2 Phase 3 (cash handover)
+//
+// Source: the API's `docs/fe-handoff-money-phase3.md`. Only collectors hold cash; an admin's cash
+// is the treasury's. Every figure is derived on the server — a receipt cancelled or corrected,
+// even after its cash was handed over, moves them; never compute them in the app. No fund
+// balance changes here.
+// ---------------------------------------------------------------------------
+
+export type HandoverStatus = "PENDING" | "RECEIVED" | "WITHDRAWN";
+export type SettlementDirection = "COLLECTOR_PAID" | "TREASURER_RETURNED";
+
+/**
+ * One handover. `filedAmount`/`receiptCount` are as filed; `expected` is the live total of its
+ * receipts now — what "Received in full" means. Once received, `difference` =
+ * `expected − countedAmount`: > 0 short, < 0 extra.
+ */
+export type Handover = {
+  id: Id;
+  collectorId: Id;
+  collectorName: string | null;
+  status: HandoverStatus;
+  filedAmount: number;
+  receiptCount: number;
+  filedAt: string;
+  expected: number;
+  liveReceiptCount: number;
+  countedAmount: number | null;
+  difference: number | null;
+  receivedByName: string | null;
+  receivedAt: string | null;
+  note: string | null;
+  withdrawnAt: string | null;
+};
+
+/** `GET /cash/me`. All zero, `pending` null, for an admin — show no cash card. */
+export type MyCash = {
+  cashWithYou: number;
+  receiptCount: number;
+  pending: Handover | null;
+  /** > 0 short · < 0 the treasurer holds extra · 0 nothing open. */
+  outstanding: number;
+};
+
+export type CollectorCash = {
+  id: Id;
+  name: string;
+  phone: string;
+  /** False: removed, or no longer a collector — listed because something is still open. */
+  activeCollector: boolean;
+  cashWithYou: number;
+  receiptCount: number;
+  inTransit: number;
+  outstanding: number;
+  total: number;
+};
+
+export type CollectorsCash = { totalWithCollectors: number; pendingCount: number; collectors: CollectorCash[] };
+
+export type CashSettlement = {
+  id: Id;
+  direction: SettlementDirection;
+  amount: number;
+  note: string;
+  byName: string | null;
+  at: string;
+};
+
+export type CollectorCashDetail = { figures: CollectorCash; handovers: Handover[]; settlements: CashSettlement[] };
+
+export type HandoverReceipt = {
+  id: Id;
+  receiptNo: string;
+  payerName: string;
+  purposeLabel: string;
+  amount: number;
+  collectedAt: string;
+  cancelled: boolean;
+};
+
+export type HandoverDetail = { handover: Handover; receipts: HandoverReceipt[] };
+
+/** Equal to `expected` is received in full; a different amount needs a `note`. */
+export type ReceiveHandoverRequest = { countedAmount: number; note?: string };
+
+export type SettleRequest = { direction: SettlementDirection; amount: number; note: string };

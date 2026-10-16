@@ -80,3 +80,15 @@ describe("digitsOnly", () => {
     expect(digitsOnly("+91 (982) 000-0000")).toBe("919820000000");
   });
 });
+
+describe("whatsAppUrl with a message", () => {
+  it("pre-types the receipt text, encoded", () => {
+    expect(whatsAppUrl("9820000000", "Receipt DPB/2026-27/0001\nAmount: ₹2,100")).toBe(
+      "https://wa.me/919820000000?text=Receipt%20DPB%2F2026-27%2F0001%0AAmount%3A%20%E2%82%B92%2C100"
+    );
+  });
+
+  it("is the bare chat link without one", () => {
+    expect(whatsAppUrl("9820000000")).toBe("https://wa.me/919820000000");
+  });
+});

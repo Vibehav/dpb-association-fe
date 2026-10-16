@@ -1,4 +1,4 @@
-import type { Id, IdProofSide, PeopleListParams, ShopListParams } from "../api";
+import type { DonorListParams, EventListParams, HandoverStatus, Id, IdProofSide, PeopleListParams, ShopListParams } from "../api";
 
 /**
  * Every query key in one place, so invalidation after a mutation is a lookup rather
@@ -34,6 +34,69 @@ export const queryKeys = {
   committee: {
     all: ["committee"] as const,
     detail: (id: Id) => ["committee", "detail", id] as const
+  },
+
+  // ---- money (v2 Phase 1) -------------------------------------------------
+  // Every money write invalidates the lot via `useMoneyInvalidation` — a receipt moves the
+  // fund, the dashboard, a shop's fee, a payer's total, an event's figures and possibly the
+  // audit list at once.
+
+  dashboard: ["dashboard"] as const,
+
+  contributions: {
+    all: ["contributions"] as const,
+    receipt: (id: Id) => ["contributions", "receipt", id] as const,
+    cancelled: ["contributions", "cancelled"] as const
+  },
+
+  donors: {
+    all: ["donors"] as const,
+    list: (params: DonorListParams) => ["donors", "list", params] as const,
+    detail: (id: Id) => ["donors", "detail", id] as const
+  },
+
+  feeCycles: {
+    all: ["fee-cycles"] as const,
+    current: ["fee-cycles", "current"] as const,
+    history: ["fee-cycles", "history"] as const
+  },
+
+  fund: {
+    all: ["fund"] as const,
+    summary: ["fund", "summary"] as const,
+    income: ["fund", "income"] as const,
+    spendings: ["fund", "spendings"] as const
+  },
+
+  // ---- money (v2 Phase 2) -------------------------------------------------
+
+  events: {
+    all: ["events"] as const,
+    /** See `shops.lists` — use after a delete, so the gone event's page isn't refetched. */
+    lists: ["events", "list"] as const,
+    list: (params: EventListParams) => ["events", "list", params] as const,
+    collectable: ["events", "collectable"] as const,
+    detail: (id: Id) => ["events", "detail", id] as const,
+    income: (id: Id) => ["events", "detail", id, "income"] as const,
+    spendings: (id: Id) => ["events", "detail", id, "spendings"] as const
+  },
+
+  // ---- money (v2 Phase 3) -------------------------------------------------
+
+  cash: {
+    all: ["cash"] as const,
+    me: ["cash", "me"] as const,
+    collectors: ["cash", "collectors"] as const,
+    collector: (id: Id) => ["cash", "collector", id] as const,
+    handovers: (status: HandoverStatus) => ["cash", "handovers", status] as const,
+    handover: (id: Id) => ["cash", "handover", id] as const
+  },
+
+  spendings: {
+    all: ["spendings"] as const,
+    detail: (id: Id) => ["spendings", "detail", id] as const,
+    /** A short-lived signed URL — fetched on demand only. */
+    bill: (id: Id) => ["spendings", "detail", id, "bill"] as const
   }
 };
 

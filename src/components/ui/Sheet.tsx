@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, radii, spacing, typography } from "../../theme";
 
@@ -21,21 +21,26 @@ type Props = {
 export function Sheet({ visible, onClose, title, children }: Props) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <View style={styles.backdrop}>
-        <Pressable style={styles.backdropFill} onPress={onClose} accessibilityLabel="Dismiss" />
-        <SafeAreaView edges={["bottom"]} style={styles.panelWrapper}>
-          <View style={styles.panel}>
-            <View style={styles.grabber} />
-            {title ? <Text style={styles.title}>{title}</Text> : null}
-            {children}
-          </View>
-        </SafeAreaView>
-      </View>
+      {/* With a translucent status bar Android does not resize the modal's window for the
+          keyboard, so a search field in the sheet ended up under it. Lift the sheet ourselves. */}
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
+        <View style={styles.backdrop}>
+          <Pressable style={styles.backdropFill} onPress={onClose} accessibilityLabel="Dismiss" />
+          <SafeAreaView edges={["bottom"]} style={styles.panelWrapper}>
+            <View style={styles.panel}>
+              <View style={styles.grabber} />
+              {title ? <Text style={styles.title}>{title}</Text> : null}
+              {children}
+            </View>
+          </SafeAreaView>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   backdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(26,22,19,0.35)" },
   backdropFill: { ...StyleSheet.absoluteFillObject },
   panelWrapper: { backgroundColor: colors.surface, borderTopLeftRadius: 26, borderTopRightRadius: 26 },

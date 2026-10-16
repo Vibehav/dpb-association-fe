@@ -45,6 +45,8 @@ export function ShopAddPersonScreen({ navigation, route }: Props) {
   const [role, setRole] = useState<LinkableRole>("STAFF");
   const [searchOpen, setSearchOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  /** The name typed in the search that found nobody — the new person's form starts with it. */
+  const [newName, setNewName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   if (shop.isPending) return <LoadingScreen />;
@@ -78,6 +80,7 @@ export function ShopAddPersonScreen({ navigation, route }: Props) {
           New {roleLabel(role).toLowerCase()} at {data.shopNumber}
         </Text>
         <MemberForm
+          initialName={newName}
           submitLabel={`Add as ${roleLabel(role).toLowerCase()}`}
           submitting={addLink.isPending}
           error={error}
@@ -142,8 +145,9 @@ export function ShopAddPersonScreen({ navigation, route }: Props) {
           setSearchOpen(false);
           link({ role, existingPersonId: person.id });
         }}
-        onCreateNew={() => {
+        onCreateNew={(typedName) => {
           setSearchOpen(false);
+          setNewName(typedName);
           setCreating(true);
         }}
       />

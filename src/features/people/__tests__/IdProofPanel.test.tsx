@@ -47,7 +47,10 @@ const person: PersonProfile = {
   addedByName: "Ishwar",
   addedOn: "2026-08-22T10:00:00Z",
   photoUrl: null,
-  shops: []
+  shops: [],
+  lifetimeTotal: 0,
+  hasCancelled: false,
+  contributionHistory: []
 };
 
 function asRole(role: "ADMIN" | "COLLECTOR" | "VIEWER") {

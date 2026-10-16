@@ -6,6 +6,7 @@ import { queryKeys } from "../../app/queryKeys";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { colors, spacing, typography } from "../../theme";
 import { ErrorState } from "../ui/ErrorState";
+import { Button } from "../ui/Button";
 import { SearchBox } from "../ui/SearchBox";
 import { PersonResultRow } from "./PersonResultRow";
 
@@ -14,6 +15,12 @@ type Props = {
   excludeIds?: Id[];
   placeholder?: string;
   autoFocus?: boolean;
+  /**
+   * When given, a search that finds nobody offers to add the person instead — search first,
+   * create only when they are genuinely not on record (spec §7.3). Called with the search term in
+   * capitals, the way names are recorded.
+   */
+  onNotFound?: (term: string) => void;
 };
 
 /**
@@ -23,7 +30,7 @@ type Props = {
  * member (prototype `showHolderPicker`), rather than covering the form with a modal. The
  * shop fields stay visible above it, which is the point.
  */
-export function PersonPicker({ onPick, excludeIds, placeholder, autoFocus }: Props) {
+export function PersonPicker({ onPick, excludeIds, placeholder, autoFocus, onNotFound }: Props) {
   const [term, setTerm] = useState("");
   const debounced = useDebouncedValue(term.trim(), 350);
   const searching = debounced.length > 0;
@@ -40,6 +47,7 @@ export function PersonPicker({ onPick, excludeIds, placeholder, autoFocus }: Pro
   return (
     <View style={styles.wrapper}>
       <SearchBox
+        uppercase
         value={term}
         onChangeText={setTerm}
         placeholder={placeholder ?? "Search existing members"}
@@ -53,7 +61,17 @@ export function PersonPicker({ onPick, excludeIds, placeholder, autoFocus }: Pro
       ) : results.error ? (
         <ErrorState error={results.error} onRetry={results.refetch} />
       ) : matches.length === 0 ? (
-        <Text style={styles.prompt}>No one on record matches “{debounced}”.</Text>
+        <>
+          <Text style={styles.prompt}>No one on record matches “{debounced}”.</Text>
+          {onNotFound ? (
+            <Button
+              label={`Add “${debounced.toUpperCase()}” as a new person`}
+              variant="secondary"
+              icon="person-add-outline"
+              onPress={() => onNotFound(debounced.toUpperCase())}
+            />
+          ) : null}
+        </>
       ) : (
         <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
           {matches.map((person) => (

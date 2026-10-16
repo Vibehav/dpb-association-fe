@@ -52,7 +52,10 @@ const person: PersonProfile = {
   addedByName: "Ishwar",
   addedOn: "2026-08-22T10:00:00Z",
   photoUrl: null,
-  shops: []
+  shops: [],
+  lifetimeTotal: 0,
+  hasCancelled: false,
+  contributionHistory: []
 };
 
 let client: QueryClient;
@@ -66,7 +69,8 @@ beforeEach(() => {
     PHOTO: slot({ status: "empty" }),
     // A front is already captured in most tests: it is the only mandatory field.
     ID_PROOF_FRONT: slot(ready("id-proofs/new-front.jpg")),
-    ID_PROOF_BACK: slot({ status: "empty" })
+    ID_PROOF_BACK: slot({ status: "empty" }),
+    BILL: slot({ status: "empty" })
   };
   jest.spyOn(peopleApi, "detail").mockResolvedValue(person);
   replaceIdProof = jest.spyOn(peopleApi, "replaceIdProof").mockResolvedValue(undefined);

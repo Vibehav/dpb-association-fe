@@ -6,6 +6,7 @@ export { Card } from "./Card";
 export { CheckRow } from "./CheckRow";
 export { Chip, ChipRow } from "./Chip";
 export { ConfirmSheet } from "./ConfirmSheet";
+export { DateField } from "./DateField";
 export { EmptyState } from "./EmptyState";
 export { ErrorState } from "./ErrorState";
 export { Field } from "./Field";

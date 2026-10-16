@@ -5,7 +5,8 @@ import { FlatList, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { IdProofFilter, LinkRole, PhotoFilter } from "../../api";
 import { usePermissions } from "../../auth/usePermissions";
-import { Button, Chip, ChipRow, EmptyState, ErrorState, ListFooter, SearchBox } from "../../components/ui";
+import { SearchWithFilters, type FilterValues } from "../../components/search/SearchWithFilters";
+import { Button, EmptyState, ErrorState, ListFooter } from "../../components/ui";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
 import type { AppStackParamList } from "../../navigation/types";
@@ -22,7 +23,7 @@ const ROLES: LinkRole[] = ["OWNER", "RENTER", "STAFF"];
  *
  * A filter on this screen rather than a separate one because the list rows carry no ID-proof
  * field of their own — the server is the only thing that knows which state a member is in, so
- * "show me the pending ones" has to be a query, and it may as well sit beside the role chips.
+ * "show me the pending ones" has to be a query, and it sits beside the role filter.
  */
 const ID_PROOF_FILTERS: { value: IdProofFilter; label: string }[] = [
   { value: "PENDING", label: "No ID proof" },
@@ -70,6 +71,25 @@ export function PeopleListScreen() {
   const emptyQueue =
     !debounced && role === null && (idProof === "PENDING" || photo === "PENDING");
 
+  // Behind the Filter button; only the ones in force show under the search box. The ID-proof
+  // and photo filters still compose — "No ID proof" + "No photo" is the members with no image.
+  const filterSections = [
+    {
+      key: "role",
+      title: "Role",
+      anyLabel: "All roles",
+      options: ROLES.map((value) => ({ value, label: roleLabel(value) }))
+    },
+    { key: "idProof", title: "ID proof", anyLabel: "Any", options: ID_PROOF_FILTERS },
+    { key: "photo", title: "Photo", anyLabel: "Any", options: PHOTO_FILTERS }
+  ];
+  const filterValues: FilterValues = { role, idProof, photo };
+  function applyFilters(next: FilterValues) {
+    setRole((next.role as LinkRole | null) ?? null);
+    setIdProof((next.idProof as IdProofFilter | null) ?? null);
+    setPhoto((next.photo as PhotoFilter | null) ?? null);
+  }
+
   if (list.error && people.length === 0) {
     return (
       <SafeAreaView style={styles.safe} edges={["bottom"]}>
@@ -93,50 +113,14 @@ export function PeopleListScreen() {
         }}
         ListHeaderComponent={
           <View style={styles.header}>
-            <SearchBox
-              value={term}
-              onChangeText={setTerm}
+            <SearchWithFilters
+              term={term}
+              onChangeTerm={setTerm}
               placeholder="Search name, phone or shop number"
+              sections={filterSections}
+              values={filterValues}
+              onChangeValues={applyFilters}
             />
-            <ChipRow>
-              <Chip label="All" selected={role === null} onPress={() => setRole(null)} />
-              {ROLES.map((value) => (
-                <Chip
-                  key={value}
-                  label={roleLabel(value)}
-                  selected={role === value}
-                  onPress={() => setRole(value)}
-                />
-              ))}
-            </ChipRow>
-            <ChipRow>
-              <Chip
-                label="Any ID proof"
-                selected={idProof === null}
-                onPress={() => setIdProof(null)}
-              />
-              {ID_PROOF_FILTERS.map(({ value, label }) => (
-                <Chip
-                  key={value}
-                  label={label}
-                  selected={idProof === value}
-                  // Tapping the active chip clears it — the pending queue is something you
-                  // dip into and back out of, not a mode to get stuck in.
-                  onPress={() => setIdProof((current) => (current === value ? null : value))}
-                />
-              ))}
-            </ChipRow>
-            <ChipRow>
-              <Chip label="Any photo" selected={photo === null} onPress={() => setPhoto(null)} />
-              {PHOTO_FILTERS.map(({ value, label }) => (
-                <Chip
-                  key={value}
-                  label={label}
-                  selected={photo === value}
-                  onPress={() => setPhoto((current) => (current === value ? null : value))}
-                />
-              ))}
-            </ChipRow>
             {!list.isPending ? (
               <Text style={typography.bodySmall}>
                 {countLine(people.length, total, "person", "people")}
@@ -148,6 +132,7 @@ export function PeopleListScreen() {
           <PersonRow
             person={item}
             onPress={() => navigation.navigate("PersonProfile", { personId: item.id })}
+            onCollect={canWrite ? () => navigation.navigate("Collect", { personId: item.id }) : undefined}
           />
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}

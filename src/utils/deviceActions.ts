@@ -24,6 +24,7 @@ export function callNumber(phone: string) {
   return open(dialerUrl(phone), "This device can't place calls.");
 }
 
-export function openWhatsApp(phone: string) {
-  return open(whatsAppUrl(phone), "WhatsApp doesn't seem to be installed.");
+/** With `text`, the message is pre-typed — how a receipt reaches the member (§6.7). */
+export function openWhatsApp(phone: string, text?: string) {
+  return open(whatsAppUrl(phone, text), "WhatsApp doesn't seem to be installed.");
 }

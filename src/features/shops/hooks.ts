@@ -12,6 +12,7 @@ import {
   linksApi,
   shopsApi,
   type AddShopLinkRequest,
+  type FeeStatus,
   type Id,
   type RegisterShopRequest,
   type TransferRequest,
@@ -20,7 +21,8 @@ import {
 import { queryKeys } from "../../app/queryKeys";
 import { COUNT_ONLY, peopleCountQueryHash, shopCountQueryHash } from "../../app/countQueries";
 
-export type ShopFilters = { query?: string; lane?: string };
+/** `feeStatus` / `arrears` are server-side filters (v2 Phase 1) — never filter a page locally. */
+export type ShopFilters = { query?: string; lane?: string; feeStatus?: FeeStatus; arrears?: boolean };
 
 export function useShopsList(filters: ShopFilters) {
   return useInfiniteQuery({
@@ -54,6 +56,10 @@ function useShopInvalidation() {
       predicate: (query) => query.queryHash !== peopleCountQueryHash
     });
     if (shopId) queryClient.invalidateQueries({ queryKey: queryKeys.shops.detail(shopId) });
+    // A shop registered after the demand was raised owes the year's fee, so Home's pending
+    // figures and the fee year's progress move with it.
+    queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+    queryClient.invalidateQueries({ queryKey: queryKeys.feeCycles.all });
   };
 }
 
@@ -81,11 +87,19 @@ export function useUpdateShop(id: Id) {
   });
 }
 
+/**
+ * A shop that owes fees answers 409 `fee_outstanding` until the delete is resent with
+ * `confirmOutstanding` — the prompt is the server's, not just the screen's.
+ */
 export function useDeleteShop() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: Id) => shopsApi.remove(id),
+    mutationFn: ({ id, confirmOutstanding = false }: { id: Id; confirmOutstanding?: boolean }) =>
+      shopsApi.remove(id, confirmOutstanding),
     onSuccess: () => {
+      // Its dues leave every pending total the moment it is deleted.
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard });
+      queryClient.invalidateQueries({ queryKey: queryKeys.feeCycles.all });
       // `lists`, not `all` — the detail lives under `all`, and refetching a shop that has
       // just been soft-deleted answers 404 while its screen is still mounted. The stale
       // detail entry is harmless; nothing can navigate back to it.

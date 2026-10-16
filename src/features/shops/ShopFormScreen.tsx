@@ -64,7 +64,10 @@ export function ShopFormScreen({ navigation, route }: Props) {
   const [businessName, setBusinessName] = useState("");
   const [lane, setLane] = useState("");
   const [tenancy, setTenancy] = useState<Tenancy>("OWNER_RUN");
-  const [holderMode, setHolderMode] = useState<HolderMode | null>(null);
+  // Search first: the picker is open from the start; "new" only once a search found nobody.
+  const [holderMode, setHolderMode] = useState<HolderMode>("existing");
+  /** The name searched for when nobody matched — carried into step 2's member form. */
+  const [newHolderName, setNewHolderName] = useState("");
   const [owner, setOwner] = useState<PersonListItem | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -142,17 +145,13 @@ export function ShopFormScreen({ navigation, route }: Props) {
   async function saveAndContinue() {
     if (!validateShopFields()) return;
 
-    if (!holderMode) {
-      setFormError("Choose the licence holder — pick an existing member, or add a new person.");
-      return;
-    }
     if (holderMode === "new") {
       setFormError(null);
       setStep("owner");
       return;
     }
     if (!owner) {
-      setFormError("Search for the licence holder, or switch to adding a new person.");
+      setFormError("Search for the licence holder — if they are not on record, add them as a new person.");
       return;
     }
 
@@ -190,6 +189,7 @@ export function ShopFormScreen({ navigation, route }: Props) {
           </Text>
         </Card>
         <MemberForm
+          initialName={newHolderName}
           submitLabel="Save shop & owner"
           submitting={register.isPending}
           error={formError}
@@ -207,6 +207,55 @@ export function ShopFormScreen({ navigation, route }: Props) {
   return (
     <Screen>
       {!editing ? <Text style={typography.eyebrow}>Step 1 of 2 · the shop</Text> : null}
+
+      {/* Search first (spec §7.3): the licence holder is looked up, and added as a new person only
+          when they are not on record — one profile per person, not two half-profiles. */}
+      {!editing ? (
+        <Card>
+          <Text style={typography.eyebrow}>Licence holder</Text>
+
+          {holderMode === "existing" && !owner ? (
+            <PersonPicker
+              placeholder="Search the licence holder by name or phone"
+              onPick={(person) => {
+                setOwner(person);
+                setFormError(null);
+              }}
+              onNotFound={(name) => {
+                setHolderMode("new");
+                setNewHolderName(name);
+                setFormError(null);
+              }}
+            />
+          ) : null}
+
+          {holderMode === "existing" && owner ? (
+            <View style={styles.picked}>
+              <Text style={typography.cardTitle}>{owner.name}</Text>
+              <Text style={styles.mono}>{formatPhone(owner.phone)}</Text>
+              <Button label="Change" variant="ghost" onPress={() => setOwner(null)} />
+            </View>
+          ) : null}
+
+          {holderMode === "new" ? (
+            <View style={styles.picked}>
+              <Text style={typography.cardTitle}>{newHolderName}</Text>
+              <Text style={typography.bodySmall}>New person — not on record yet</Text>
+              <Button
+                label="Change"
+                variant="ghost"
+                onPress={() => {
+                  setHolderMode("existing");
+                  setNewHolderName("");
+                  setFormError(null);
+                }}
+              />
+            </View>
+          ) : null}
+
+          <Text style={typography.bodySmall}>{nextStepNote(holderMode, owner)}</Text>
+        </Card>
+      ) : null}
 
       <Card>
         <Field
@@ -253,51 +302,6 @@ export function ShopFormScreen({ navigation, route }: Props) {
         </ChipRow>
       </Card>
 
-      {!editing ? (
-        <Card>
-          <Text style={typography.eyebrow}>Licence holder</Text>
-          <ChipRow>
-            <Chip
-              label="Pick an existing member"
-              selected={holderMode === "existing"}
-              onPress={() => {
-                setHolderMode("existing");
-                setFormError(null);
-              }}
-            />
-            <Chip
-              label="Add a new person"
-              selected={holderMode === "new"}
-              onPress={() => {
-                setHolderMode("new");
-                setOwner(null);
-                setFormError(null);
-              }}
-            />
-          </ChipRow>
-
-          {/* Revealed in place, so the shop fields stay visible above it. */}
-          {holderMode === "existing" && !owner ? (
-            <PersonPicker
-              onPick={(person) => {
-                setOwner(person);
-                setFormError(null);
-              }}
-            />
-          ) : null}
-
-          {holderMode === "existing" && owner ? (
-            <View style={styles.picked}>
-              <Text style={typography.cardTitle}>{owner.name}</Text>
-              <Text style={styles.mono}>{formatPhone(owner.phone)}</Text>
-              <Button label="Change" variant="ghost" onPress={() => setOwner(null)} />
-            </View>
-          ) : null}
-
-          <Text style={typography.bodySmall}>{nextStepNote(holderMode, owner)}</Text>
-        </Card>
-      ) : null}
-
       {formError ? <Banner message={formError} /> : null}
 
       {editing ? (
@@ -315,10 +319,9 @@ export function ShopFormScreen({ navigation, route }: Props) {
 }
 
 /** Prototype `nextStepNote` — tells the user what "continue" is about to do. */
-function nextStepNote(mode: HolderMode | null, owner: PersonListItem | null) {
-  if (!mode) return "A shop always has exactly one licence holder.";
-  if (mode === "new") return "Next: their name, photo, phone, address and ID proof.";
-  if (!owner) return "Search an existing member by name or phone number.";
+function nextStepNote(mode: HolderMode, owner: PersonListItem | null) {
+  if (mode === "new") return "Next: their photo, phone, address and ID proof. The name is carried over.";
+  if (!owner) return "A shop always has exactly one licence holder. Not on record? Search, then add them as a new person.";
   return `${owner.name} will hold the licence for this shop.`;
 }
 

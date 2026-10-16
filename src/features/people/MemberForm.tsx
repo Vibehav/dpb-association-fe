@@ -59,6 +59,8 @@ type Props = {
   linksSection?: ReactNode;
   /** Checked after the phone, which is where the spec puts links in *validation* order. */
   validateLinks?: () => string | null;
+  /** A name already typed elsewhere — the search that found nobody — so it isn't typed twice. */
+  initialName?: string;
 };
 
 export function MemberForm({
@@ -68,11 +70,13 @@ export function MemberForm({
   onSubmit,
   onBack,
   linksSection,
-  validateLinks
+  validateLinks,
+  initialName
 }: Props) {
   const me = useMe();
 
-  const [name, setName] = useState("");
+  // Record text is capitals, like every other name in the register.
+  const [name, setName] = useState(initialName ? initialName.trim().toUpperCase() : "");
   const [phone, setPhone] = useState("");
   const [sameWhatsApp, setSameWhatsApp] = useState(true);
   const [whatsApp, setWhatsApp] = useState("");

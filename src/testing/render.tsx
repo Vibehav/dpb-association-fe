@@ -9,12 +9,16 @@ import type { ReactNode } from "react";
 /**
  * A query client with retries and network-awareness off, so a test asserts one attempt and
  * finishes immediately rather than waiting out a backoff.
+ *
+ * `gcTime: Infinity` on both: a finite one leaves a timer running (five minutes by default)
+ * after every query or mutation, and a single test file — run in the main process rather
+ * than a worker — then sits for those five minutes before Jest can exit.
  */
 export function testQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: { retry: false, gcTime: Infinity },
-      mutations: { retry: false }
+      mutations: { retry: false, gcTime: Infinity }
     }
   });
 }

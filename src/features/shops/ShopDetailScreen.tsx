@@ -1,7 +1,7 @@
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { errorMessage, type PersonAtShop } from "../../api";
+import { errorMessage, isCode, type PersonAtShop } from "../../api";
 import { usePermissions } from "../../auth/usePermissions";
 import {
   Avatar,
@@ -18,16 +18,21 @@ import {
 import { useRefreshOnFocus } from "../../hooks/useRefreshOnFocus";
 import type { AppStackParamList } from "../../navigation/types";
 import { colors, spacing, typography } from "../../theme";
-import { formatDate, roleLabel, tenancyLabel } from "../../utils/format";
+import { formatDate, formatMoney, roleLabel, tenancyLabel } from "../../utils/format";
 import { formatPhone } from "../../utils/phone";
+import { ShopFeeSection } from "../money/components/ShopFeeSection";
 import { useDeleteShop, useRemoveLink, useShop } from "./hooks";
 
 type Props = NativeStackScreenProps<AppStackParamList, "ShopDetail">;
 
 /**
- * One shop (integration doc §5.3).
+ * One shop (integration doc §5.3), with its fee (spec §6.3): this year's card and its
+ * instalments, earlier years, and Collect where the server says something is collectable.
  *
- * The fee card and "Earlier years" from the design are omitted — both are v2.
+ * Money owed reaches two admin actions. **Delete** asks first, naming the amount — the server
+ * enforces the same prompt (409 `fee_outstanding` until confirmed). **Transfer** is refused
+ * outright while anything is due, part-paid years included, so the button is disabled with the
+ * reason rather than left to fail; filling a vacancy is not blocked, since nobody could pay.
  */
 export function ShopDetailScreen({ navigation, route }: Props) {
   const { shopId } = route.params;
@@ -38,6 +43,8 @@ export function ShopDetailScreen({ navigation, route }: Props) {
   const removeLink = useRemoveLink(shopId);
 
   const [confirmDelete, setConfirmDelete] = useState(false);
+  /** The server's own `fee_outstanding` wording, when it disagrees with what we loaded. */
+  const [owedMessage, setOwedMessage] = useState<string | null>(null);
   const [unlinking, setUnlinking] = useState<PersonAtShop | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -59,14 +66,26 @@ export function ShopDetailScreen({ navigation, route }: Props) {
    * the state and points at it rather than rendering a people list that is quietly short.
    */
   const hasLicenceHolder = data.people.some((link) => link.role === "OWNER");
+  const owed = data.feeOutstanding.total;
+  const owedByYear = data.feeOutstanding.byYear
+    .map((year) => `${year.yearLabel} ${formatMoney(year.due)}`)
+    .join(" · ");
+  const transferBlocked = hasLicenceHolder && owed > 0;
 
   async function onDelete() {
     setActionError(null);
     try {
-      await deleteShop.mutateAsync(shopId);
+      // The admin has seen the amount in this sheet, so the confirmation travels with it.
+      await deleteShop.mutateAsync({ id: shopId, confirmOutstanding: owed > 0 || owedMessage !== null });
       setConfirmDelete(false);
+      setOwedMessage(null);
       navigation.goBack();
     } catch (caught) {
+      if (isCode(caught, "fee_outstanding")) {
+        // A receipt was cancelled since this screen loaded: ask again, in the server's words.
+        setOwedMessage(caught.message);
+        return;
+      }
       setConfirmDelete(false);
       setActionError(errorMessage(caught));
     }
@@ -117,6 +136,20 @@ export function ShopDetailScreen({ navigation, route }: Props) {
         ) : null}
       </Card>
 
+      <ShopFeeSection
+        fee={data.fee}
+        earlierYears={data.earlierYears}
+        canCollect={canWrite}
+        onCollect={(feeCycleId) =>
+          navigation.navigate("Collect", {
+            shopId,
+            purpose: "ANNUAL_FEE",
+            ...(feeCycleId !== null ? { feeCycleId } : {})
+          })
+        }
+        onOpenReceipt={(contributionId) => navigation.navigate("Receipt", { contributionId })}
+      />
+
       <Card>
         <Text style={typography.eyebrow}>People at this shop</Text>
         {!hasLicenceHolder ? (
@@ -156,10 +189,17 @@ export function ShopDetailScreen({ navigation, route }: Props) {
       {isAdmin ? (
         <Card>
           <Text style={typography.eyebrow}>Admin</Text>
+          {transferBlocked ? (
+            <Banner
+              tone="notice"
+              message={`${formatMoney(owed)} is still due (${owedByYear}). Collect it from the current licence holder before transferring the licence.`}
+            />
+          ) : null}
           <Button
             label={hasLicenceHolder ? "Transfer licence" : "Assign licence holder"}
             variant="secondary"
             icon="swap-horizontal-outline"
+            disabled={transferBlocked}
             onPress={() => navigation.navigate("ShopTransfer", { shopId })}
           />
           <Button
@@ -173,15 +213,24 @@ export function ShopDetailScreen({ navigation, route }: Props) {
 
       <ConfirmSheet
         visible={confirmDelete}
-        onClose={() => setConfirmDelete(false)}
+        onClose={() => {
+          setConfirmDelete(false);
+          setOwedMessage(null);
+        }}
         onConfirm={onDelete}
         loading={deleteShop.isPending}
         destructive
         title={`Delete ${data.shopNumber}?`}
-        message={`This hides the shop and unlinks everyone at it — ${data.people.length} ${
+        message={`${
+          owedMessage
+            ? `${owedMessage}. `
+            : owed > 0
+              ? `It still has ${formatMoney(owed)} due (${owedByYear}); deleting it drops those dues from every pending total. `
+              : ""
+        }This hides the shop and unlinks everyone at it — ${data.people.length} ${
           data.people.length === 1 ? "person" : "people"
         }. The shop number becomes free for a new record. Prefer Edit if you're fixing a typo.`}
-        confirmLabel="Delete shop"
+        confirmLabel={owed > 0 || owedMessage ? "Delete anyway" : "Delete shop"}
       />
 
       <ConfirmSheet

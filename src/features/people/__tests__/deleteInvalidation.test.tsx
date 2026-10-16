@@ -64,7 +64,7 @@ describe("useDeleteShop", () => {
     client.setQueryData(queryKeys.people.list({}), emptyPage);
 
     const { result } = await renderHook(() => useDeleteShop(), { wrapper: withQueryClient(client) });
-    await result.current.mutateAsync(101);
+    await result.current.mutateAsync({ id: 101 });
 
     await waitFor(() => expect(invalidated(client, queryKeys.shops.list({}))).toBe(true));
 

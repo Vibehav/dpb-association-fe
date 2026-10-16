@@ -100,6 +100,84 @@ export const SERVER_ERROR_CODES = [
   /** 400 · the object isn't in storage — the presigned PUT never completed. */
   "media_not_uploaded",
 
+  // --- money: collecting (v2 Phase 1) ----------------------------------------
+  // Most of these carry a message written to be shown as-is ("Only ₹3,000 is due for
+  // 2026-27"), so they have no override below.
+  "payer_required", // 400 · not exactly one of personId / donorId / newDonor
+  "donor_cannot_pay_fee", // 400 · the annual fee is paid by the licence holder only
+  "shop_required", // 400 · ANNUAL_FEE without shopId
+  "no_open_cycle", // 409 · no fee year open (also 404 on GET /fee-cycles/current — a normal state)
+  "demand_not_raised", // 409 · fee year exists, demand not raised
+  "fee_demand_not_found", // 404 · that year named, but this shop owed nothing in it
+  "no_licence_holder", // 409 · the shop has no holder on record to pay
+  "not_licence_holder", // 400 · the payer is not the shop's licence holder
+  "fee_already_paid", // 409 · nothing is due for that year
+  "amount_above_due", // 400 · more than is due; message names what is
+  /**
+   * 409 · less than is due and not confirmed. **Not a failure** — the confirmation step of a
+   * part payment. Show the message ("₹3,000 will remain due … confirm …") with Cancel /
+   * Confirm, and resend with `confirmPartPayment: true`.
+   */
+  "part_payment_unconfirmed",
+  "contribution_not_found", // 404
+  "already_cancelled", // 409 · cancel or correct on a cancelled receipt
+  "donor_not_found", // 404
+
+  // --- money: fee year (admin) ------------------------------------------------
+  "fee_cycle_not_found", // 404
+  "invalid_year_label", // 400 · must be two consecutive years, 2026-27
+  "cycle_already_open", // 409 · close the open year first
+  "duplicate_year", // 409 · that year's fee was already set
+  "cycle_closed", // 400 · re-price / raise / close on a closed year
+  "demand_already_raised", // 409
+  /**
+   * 409 · the shop still owes fees. On **delete** it is a prompt: resend with
+   * `confirmOutstanding=true` to delete anyway. On **transfer** it is a refusal — the dues
+   * must be collected from the current holder first. Show the message; it names the amount.
+   */
+  "fee_outstanding",
+
+  // --- money: events and spending (v2 Phase 2) -----------------------------------
+  // Messages are written to be shown as-is; they name the event and the amounts.
+  "event_required", // 400 · EVENT_DONATION without eventId, or paidFrom EVENT without one
+  "event_not_expected", // 400 · eventId with another purpose
+  "event_not_found", // 404 · also a general-funded event to a collector or viewer
+  "event_has_no_fund", // 400 · a general-funded event takes no donations and has no fund to pay from
+  "event_closed", // 409 · no new donation or spending; refresh the picker / the event
+  "duplicate_event_name", // 409 · ignoring case
+  "invalid_dates", // 400 · the end date is before the start
+  "event_not_empty", // 409 · type switch or delete once anything was recorded
+  "already_closed", // 409
+  "move_choice_required", // 400 · money is left — choose to move it or keep it
+  "event_balance_negative", // 409 · the event is short; the message says what to do
+  "event_not_closed", // 409 · move-balance before close
+  "balance_already_moved", // 409
+  "nothing_to_move", // 409
+  "paid_from_required", // 400 · an own-fund event's bill must say which fund pays
+  /**
+   * 409 · the bill is bigger than what the event's fund holds. When something is left the
+   * message is the **split offer** ("confirm to pay ₹10,000 from it and the remaining ₹5,000
+   * from the general fund") — resend with `splitToGeneral: true`.
+   */
+  "event_fund_short",
+  "general_fund_short", // 409 · no spending may take the general fund below ₹0
+  "future_date", // 400 · a spending or opening balance dated after today
+  "spending_not_found", // 404
+  "already_voided", // 409
+  "bill_missing", // 404 · no bill on file
+  "opening_balance_exists", // 409 · void it first
+  "opening_balance_not_found", // 404
+
+  // --- money: cash handover (v2 Phase 3) ------------------------------------------
+  "nothing_to_hand_over", // 409 · no cash with the collector
+  "handover_pending", // 409 · one is already waiting; withdraw to hand over everything together
+  "handover_not_pending", // 409 · already counted or withdrawn
+  "handover_not_found", // 404 · also another collector's handover
+  "note_required", // 400 · the counted amount differs and there is no note
+  "nothing_to_settle", // 409 · nothing open in that direction
+  "settle_above_outstanding", // 400
+  "collector_not_found", // 404
+
   // --- generic --------------------------------------------------------------
   "forbidden", // 403 · authenticated but the role isn't allowed
   // 400 · bean-validation failure, where `message` names the field — and also an

@@ -7,10 +7,12 @@ type ChipProps = {
   selected?: boolean;
   onPress?: () => void;
   disabled?: boolean;
+  /** For when the visible text reads badly aloud — e.g. a removable "Due ✕". */
+  accessibilityLabel?: string;
 };
 
 /** A filter chip. Also used read-only (no `onPress`) for role and status tags. */
-export function Chip({ label, selected, onPress, disabled = false }: ChipProps) {
+export function Chip({ label, selected, onPress, disabled = false, accessibilityLabel }: ChipProps) {
   const body = (
     <View style={[styles.chip, selected && styles.selected, disabled && styles.disabled]}>
       <Text style={[styles.label, selected && styles.labelSelected, disabled && styles.labelDisabled]}>{label}</Text>
@@ -24,6 +26,7 @@ export function Chip({ label, selected, onPress, disabled = false }: ChipProps) 
       onPress={onPress}
       disabled={disabled}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled, selected: Boolean(selected) }}
       hitSlop={6}
     >

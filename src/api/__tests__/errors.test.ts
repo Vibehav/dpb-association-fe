@@ -31,6 +31,42 @@ describe("the code list", () => {
     for (const code of mustKnow) expect(SERVER_ERROR_CODES).toContain(code);
   });
 
+  it("knows the money codes the screens branch on (v2 Phase 1)", () => {
+    // The collection form and receipt actions turn `part_payment_unconfirmed` into a
+    // confirmation, and the shop screen turns `fee_outstanding` into the delete prompt —
+    // a code missing here would make those branches silently never match.
+    const money = [
+      "payer_required", "donor_cannot_pay_fee", "shop_required", "no_open_cycle", "demand_not_raised",
+      "fee_demand_not_found", "no_licence_holder", "not_licence_holder", "fee_already_paid",
+      "amount_above_due", "part_payment_unconfirmed", "contribution_not_found",
+      "already_cancelled", "donor_not_found", "fee_cycle_not_found", "invalid_year_label",
+      "cycle_already_open", "duplicate_year", "cycle_closed", "demand_already_raised", "fee_outstanding"
+    ];
+    for (const code of money) expect(SERVER_ERROR_CODES).toContain(code);
+  });
+
+  it("knows the events and spending codes the screens branch on (v2 Phase 2)", () => {
+    // `event_fund_short` opens the split confirmation and `event_closed` refreshes the picker.
+    const phase2 = [
+      "event_required", "event_not_expected", "event_not_found", "event_has_no_fund", "event_closed",
+      "duplicate_event_name", "invalid_dates", "event_not_empty", "already_closed", "move_choice_required",
+      "event_balance_negative", "event_not_closed", "balance_already_moved", "nothing_to_move",
+      "paid_from_required", "event_fund_short", "general_fund_short", "future_date", "spending_not_found",
+      "already_voided", "bill_missing", "opening_balance_exists", "opening_balance_not_found"
+    ];
+    for (const code of phase2) expect(SERVER_ERROR_CODES).toContain(code);
+    // Gone from the API with Phase 2; a branch still matching it would never fire.
+    expect(SERVER_ERROR_CODES).not.toContain("events_not_available");
+  });
+
+  it("shows the server's own words for the fee refusals, which carry the amounts", () => {
+    const e = apiErrorFromBody(
+      409,
+      '{"code":"part_payment_unconfirmed","message":"₹3,000 will remain due for 2026-27 — confirm to record this as a part payment"}'
+    );
+    expect(errorMessage(e)).toBe("₹3,000 will remain due for 2026-27 — confirm to record this as a part payment");
+  });
+
   it("dropped the Aadhaar-era code rather than keeping both", () => {
     // A rename that only *adds* the new code leaves dead branches matching the old one.
     expect(SERVER_ERROR_CODES).not.toContain("aadhaar_missing");

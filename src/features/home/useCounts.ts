@@ -6,9 +6,9 @@ import { queryKeys } from "../../app/queryKeys";
 /**
  * Shop and people totals for the Home screen.
  *
- * v1 has no dashboard endpoint, so the counts come from `totalElements` on a
- * one-row page — exactly what integration doc §5.1 prescribes. Nothing else goes on
- * Home: fund balances, event cards, pending collections and top contributors are all v2.
+ * The counts come from `totalElements` on a one-row page — what integration doc §5.1
+ * prescribes. The money on Home comes from `GET /dashboard` (v2 Phase 1); these two stay as
+ * they were, because "people on record" is not the dashboard's `peopleLinked`.
  */
 export function useShopCount() {
   return useQuery({
